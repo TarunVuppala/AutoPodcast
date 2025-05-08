@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest Version="5.0"
+                   ExtensionBundleId="com.timbre.multi_cam_auto_edit"
+                   ExtensionBundleVersion="11.1"
+                   ExtensionBundleName="Timbre Multi Cam Auto Edit Plugin"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ExtensionList>
+    <Extension Id="com.timbre.multi_cam_auto_edit" Version="0.1" />
+  </ExtensionList>
+  <CEFCommandLine>
+    <Parameter>--enable-nodejs</Parameter>
+  </CEFCommandLine>
+  <ExecutionEnvironment>
+    <HostList>
+      <Host Name="PPRO" Version="22.0" />
+    </HostList>
+    <LocaleList>
+      <Locale Code="All" />
+    </LocaleList>
+    <RequiredRuntimeList>
+      <RequiredRuntime Name="CSXS" Version="9.0" />
+    </RequiredRuntimeList>
+  </ExecutionEnvironment>
+  <DispatchInfoList>
+    <Extension Id="com.timbre.multi_cam_auto_edit">
+      <DispatchInfo>
+        <Resources>
+          <MainPath>./index.html</MainPath>
+          <ScriptPath>./PProPanel.jsx</ScriptPath>
+          <CEFCommandLine>
+            <Parameter>--allow-file-access</Parameter>
+            <Parameter>--allow-file-access-from-files</Parameter>
+            <Parameter>--allow-running-insecure-content</Parameter>
+          </CEFCommandLine>
+        </Resources>
+        <Lifecycle>
+          <AutoVisible>true</AutoVisible>
+        </Lifecycle>
+        <UI>
+          <Type>Panel</Type>
+          <Menu>Multi Cam Podcast Auto Edit</Menu>
+          <Geometry>
+            <Size>
+              <Height>800</Height>
+              <Width>650</Width>
+            </Size>
+          </Geometry>
+        </UI>
+      </DispatchInfo>
+    </Extension>
+  </DispatchInfoList>
+</ExtensionManifest>
