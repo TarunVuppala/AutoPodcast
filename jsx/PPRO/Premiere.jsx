@@ -3067,117 +3067,99 @@ $._PPP_ = {
 		seq.clone();
 	},
 
-	// createSubClip: function (keepSegments, videoTrackIndex, audioTrackIndex) {
-	// 	try {
-	// 		$._PPP_.updateEventPanel("Creating subclips...");
-	// 		var seq = app.project.activeSequence;
-	// 		if (!seq) {
-	// 			$._PPP_.updateEventPanel("No active sequence!");
-	// 			return;
-	// 		}
-
-	// 		var vTrack = seq.videoTracks[videoTrackIndex - 1];
-	// 		var aTrack = seq.audioTracks[audioTrackIndex - 1];
-	// 		var projItem = vTrack.clips[0].projectItem;
-
-	// 		vTrack.clips[0].remove(true, true);
-	// 		aTrack.clips[0].remove(true, true);
-
-	// 		for (var i = 0; i < keepSegments.length; i++) {
-	// 			var seg = keepSegments[i];
-	// 			var inTime = new Time(); inTime.seconds = seg.start;
-	// 			var outTime = new Time(); outTime.seconds = seg.end;
-
-	// 			var name = "Subclip_" + (i + 1)
-	// 				+ "_" + inTime.seconds.toFixed(2)
-	// 				+ "-" + outTime.seconds.toFixed(2)
-	// 				+ "_V" + videoTrackIndex
-	// 				+ "_A" + audioTrackIndex;
-
-	// 			var subItem = projItem.createSubClip(name, inTime, outTime, 1);
-
-	// 			vTrack.insertClip(subItem, inTime.seconds);
-	// 			$._PPP_.saveProject();
-
-	// 			$._PPP_.updateEventPanel(
-	// 				"Inserted '" + name + "' at " + inTime.seconds.toFixed(2) + "s"
-	// 			);
-	// 		}
-	// 		$._PPP_.updateEventPanel("Number of clips: " + vTrack.clips.numItems);
-	// 	}
-	// 	catch (e) {
-	// 		$._PPP_.updateEventPanel("Error in createSubClip: " + e);
-	// 	}
-	// }
-
-	createSubClip: function (keepSegments, videoTrackIndex, audioTrackIndex) {
+	processTimeline: function (tl) {
+		// var FADE_DURATION = 0.2;
 		try {
-			$._PPP_.updateEventPanel("Creating subclips...");
+			if (!tl || tl.length === 0) {
+				throw new Error("No timeline provided.");
+			}
+			this.updateEventPanel("Starting timeline processing…");
 			var seq = app.project.activeSequence;
 			if (!seq) {
-				$._PPP_.updateEventPanel("No active sequence!");
+				this.updateEventPanel("No active sequence!");
 				return;
 			}
 
-			var vTrack = seq.videoTracks[videoTrackIndex - 1];
-			var aTrack = seq.audioTracks[audioTrackIndex - 1];
-			var projItem = vTrack.clips[0].projectItem;
-
-			vTrack.clips[0].remove(true, true);
-			aTrack.clips[0].remove(true, true);
-
-			var lastSafeTime = new Time();
-			lastSafeTime.seconds = 0;
-
-			for (var i = 0; i < keepSegments.length; i++) {
-				var seg = keepSegments[i];
-
-				var inTime = new Time(); inTime.seconds = seg.start;
-				var outTime = new Time(); outTime.seconds = seg.end;
-				var duration = outTime.seconds - inTime.seconds;
-
-				var name =
-					"Subclip_" + (i + 1)
-					+ "_" + inTime.seconds.toFixed(2)
-					+ "-" + outTime.seconds.toFixed(2);
-
-				var subItem = projItem.createSubClip(name, inTime, outTime, 1);
-
-				seq.insertClip(
-					subItem,
-					lastSafeTime,
-					videoTrackIndex - 1,
-					audioTrackIndex - 1
-				);
-				var shift = new Time();
-				shift.seconds = seg.start - lastSafeTime.seconds;
-
-				var newVItem = vTrack.clips[vTrack.clips.numItems - 1];
-				var newAItem = aTrack.clips[aTrack.clips.numItems - 1];
-
-				newVItem.move(shift);
-				newAItem.move(shift);
-
-				$._PPP_.updateEventPanel(
-					"Inserted '" + name + "' then moved to "
-					+ inTime.seconds.toFixed(2) + "s"
-				);
-
-				// 10) bump our tail pointer for the next insert
-				lastSafeTime.seconds += duration;
+			//determine which tracks are used and grab their source ProjectItem
+			var usedV = {}, usedA = {}, projItems = {};
+			for (var i = 0; i < tl.length; i++) {
+				var e = tl[i];
+				usedV[e.videoTrack] = true;
+				usedA[e.audioTrack] = true;
+			}
+			for (var vt in usedV) {
+				var track = seq.videoTracks[Number(vt) - 1];
+				if (track.clips.numItems > 0) {
+					projItems[vt] = track.clips[0].projectItem;
+				} else {
+					this.updateEventPanel("Warning: video track " + vt + " has no source clip!");
+				}
 			}
 
-			// 11) one final save & report
-			$._PPP_.saveProject();
-			$._PPP_.updateEventPanel(
-				"Done! " + vTrack.clips.numItems
-				+ " subclips on video track " + videoTrackIndex
-			);
+			//clear all clips on each used track (video and audio)
+			for (var vt in usedV) {
+				var track = seq.videoTracks[Number(vt) - 1];
+				while (track.clips.numItems) {
+					track.clips[0].remove(true, true);
+				}
+			}
+			for (var at in usedA) {
+				var track = seq.audioTracks[Number(at) - 1];
+				while (track.clips.numItems) {
+					track.clips[0].remove(true, true);
+				}
+			}
+			this.saveProject();
+
+			// Insert timeline entries
+			for (var idx = 0; idx < tl.length; idx++) {
+				var e = tl[idx];
+				var vTrack = seq.videoTracks[e.videoTrack - 1];
+				var aTrack = seq.audioTracks[e.audioTrack - 1];
+				var projItem = projItems[e.videoTrack];
+				if (!projItem) {
+					this.updateEventPanel("Skipping entry " + idx + ": no source item for track " + e.videoTrack);
+					continue;
+				}
+
+				// Build time objects
+				var inTime = new Time(); inTime.seconds = e.start;
+				var outTime = new Time(); outTime.seconds = e.end;
+				var name = e.type + "_" + (idx + 1)
+					+ "_" + e.start.toFixed(2)
+					+ "-" + e.end.toFixed(2);
+
+				// Create a subclip
+				var subItem = projItem.createSubClip(name, inTime, outTime, 1);
+
+				// Insert subclip at absolute start
+				seq.insertClip(subItem, inTime, e.videoTrack - 1, e.audioTrack - 1);
+
+				// Get the newly inserted clip on the video track
+				var clip = vTrack.clips[vTrack.clips.numItems - 1];
+
+				// transitions for fadeIn/fadeOut
+				// if (e.type === "fadeOut") {
+				// 	clip.addVideoTransition("Cross Dissolve", FADE_DURATION);
+				// 	clip.addAudioTransition("Constant Power", FADE_DURATION);
+				// }
+				// else if (e.type === "fadeIn") {
+				// 	clip.addVideoTransition("Cross Dissolve", FADE_DURATION);
+				// 	clip.addAudioTransition("Constant Power", FADE_DURATION);
+				// }
+				// type==="keep": no transition
+
+				this.updateEventPanel(
+					"Inserted " + name + " (" + e.type + ") at " + e.start.toFixed(2) + "s"
+				);
+			}
+
+			this.saveProject();
+			this.updateEventPanel("Timeline processing complete: " + tl.length + " entries applied");
 		}
-		catch (e) {
-			$._PPP_.updateEventPanel("Error in createSubClip: " + e.toString());
+		catch (err) {
+			this.updateEventPanel("Error in processTimeline: " + err.toString());
 		}
 	},
-
 
 }

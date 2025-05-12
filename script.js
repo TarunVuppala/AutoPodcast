@@ -1551,48 +1551,57 @@ document.addEventListener("DOMContentLoaded", () => {
     csInterface.evalScript("$._PPP_.createClone()");
     logToPanel("Created clone", "info");
 
-    // (make sure this is inside an async function)
     try {
+      const args = [];
       for (let i = 0; i < appState.formData.numCameras; i++) {
         if (!appState.formData.trackMapping[i]) continue;
 
-        const audioTrackNum = appState.formData.audioTrackNumbers[i];
-        const videoTrackNum = appState.formData.trackNumbers[i];
-        const audioTrack = appState.trackInfo.audioTracks[audioTrackNum - 1];
+        const file = appState.trackInfo.audioTracks[appState.formData.audioTrackNumbers[i] - 1];
+        const vTrack = appState.formData.trackNumbers[i];
+        const aTrack = appState.formData.audioTrackNumbers[i];
 
-        if (!audioTrack || audioTrack.includes("Error")) {
-          logToPanel(`Skipping track ${audioTrackNum}`, "warn");
+        if (!file || file.includes("Error")) {
+          logToPanel(`Skipping bad track ${aTrack}`, "warn");
           continue;
         }
 
-        showToast(`Running audio analysis for track ${audioTrackNum}...`, "info");
-
-        // 1) wait for your analysis
-        const stdout = await runAudioAnalysis(audioTrack, audioThreshold, minCutDuration, mergeGap);
-        logToPanel(`Audio analysis done for track ${audioTrackNum}, now adding to timeline`, "info");
-
-        // 2) parse & create subclips, waiting for evalScript to finish
-        const { keepSegments } = JSON.parse(stdout);
-        await new Promise(resolve => {
-          csInterface.evalScript(
-            `$._PPP_.createSubClip(${JSON.stringify(keepSegments)}, ${videoTrackNum}, ${audioTrackNum});`, () => {
-              showToast(`Added track ${audioTrackNum} to timeline`, "success");
-              logToPanel(`Added track ${audioTrackNum} to timeline`, "success");
-              resolve();
-            }
-          );
-        });
-        logToPanel(`Added track ${audioTrackNum} to timeline and now sleeping`, "info");
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        args.push(file, vTrack, aTrack);
       }
 
-      showToast("Audio analysis complete for all tracks!", "success");
-      logToPanel("Audio analysis complete for all tracks!", "success");
+      args.push(
+        String(audioThreshold),
+        String(minCutDuration),
+        String(mergeGap)
+      );
 
-    } catch (err) {
-      showToast(`Error running audio analysis: ${err}`, "error");
-      logToPanel(`Error running audio analysis: ${err}`, "error");
-    } finally {
+      showToast("Running audio analysis on all tracks…", "info");
+      // document.getElementById("out").textContent = `${args.join(" ")} length: ${args.length}`;
+      logToPanel(`Invoking analysis with ${args.length} arguments`, "info");
+
+      // 3) Call the packaged CLI once
+      const stdout = await runAudioAnalysis(args);
+      const { timeline } = JSON.parse(stdout);
+      // logToPanel(`Received ${timeline} timeline entries`, "info");
+
+      await new Promise(resolve => {
+        csInterface.evalScript(
+          `$._PPP_.processTimeline(${JSON.stringify(timeline)});`,
+          () => {
+            showToast("Timeline applied in Premiere Pro", "success");
+            logToPanel("processTimeline() callback received", "info");
+            resolve();
+          }
+        );
+      });
+
+      showToast("All done!", "success");
+      logToPanel("Completed multi-camera audio analysis and edit", "success");
+    }
+    catch (err) {
+      showToast(`Error during analysis: ${err}`, "error");
+      logToPanel(`Error: ${err}`, "error");
+    }
+    finally {
       resetCreateButton();
       appState.ui.isDirty = false;
       appState.ui.isProcessing = false;

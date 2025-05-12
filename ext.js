@@ -242,79 +242,72 @@ function onClickButton(ppid) {
 }
 
 /**
- * Runs the audio analysis tool end‑to‑end and returns a Promise
- * which resolves with the JSON output (as a string), or rejects on error.
+ * Launches the packaged audio‐analysis CLI with *all* camera files,
+ * their video+audio track numbers, and the three global params.
  *
- * @param {string} audioFilePath          – Full path to the audio to analyze
- * @param {string} audioThreshold         – e.g. "-30dB"
- * @param {number} minSilenceGap          – in seconds
- * @param {number} minGapBetweenSilences  – in seconds
- * @returns {Promise<string>}
+ * @param {Array<string|number>} cliArgs
+ *   An array of the form:
+ *     [
+ *       file1Path,  videoTrack1,  audioTrack1,
+ *       file2Path,  videoTrack2,  audioTrack2,
+ *       …,
+ *       silenceThreshold,  minSilenceDuration,  mergeFactor
+ *     ]
+ * @returns {Promise<string>}  resolves with the raw JSON stdout
  */
-function runAudioAnalysis(audioFilePath, audioThreshold, minSilenceGap, minGapBetweenSilences) {
+async function runAudioAnalysis(cliArgs) {
 	return new Promise((resolve, reject) => {
-
 		const cs = new CSInterface();
 		const extDir = cs.getSystemPath(SystemPath.EXTENSION);
 		const isWin = cs.getOSInformation().includes("Windows");
 		const sep = isWin ? "\\" : "/";
-		// document.getElementById("out").innerHTML = (`Executing ${audioFilePath} ${audioThreshold} ${minSilenceGap} ${minGapBetweenSilences}`);
 
-		if (!audioFilePath) {
-			const msg = "No audio file selected. Please choose one.";
-			return reject(msg);
+		if (!Array.isArray(cliArgs) || cliArgs.length < 4) {
+			return reject("runAudioAnalysis requires at least one file+tracks and the 3 params");
 		}
 
-		if (isWin) {
-			audioFilePath = audioFilePath.replace(/\\/g, "\\\\");
-		}
-		let exePath = extDir + sep + "payloads" + sep + "audioTool-win.exe";
-		if (isWin) {
-			exePath = exePath.replace(/\\/g, "\\\\");
-		}
+		const safeArgs = cliArgs.map(arg => {
+			const s = String(arg);
+			return isWin ? s.replace(/\\/g, "\\\\") : s;
+		});
 
-		const args = [
-			audioFilePath,
-			audioThreshold,
-			minSilenceGap.toString(),
-			minGapBetweenSilences.toString()
-		];
+		// pick the binary
+		const exeName = isWin ? "audioTool-win.exe" : "audioTool-mac";
+		let exePath = extDir + sep + "payloads" + sep + exeName;
+		if (isWin) exePath = exePath.replace(/\\/g, "\\\\");
 
-
-		const startRes = window.cep.process.createProcess(exePath, ...args);
+		// start the process
+		const startRes = window.cep.process.createProcess(exePath, ...safeArgs);
 		if (startRes.err !== 0) {
-			const msg = `Error starting process: ${startRes.err}`;
-			return reject(msg);
+			return reject(`Error starting analysis process: ${startRes.err}`);
 		}
 		const pid = startRes.data;
-		const timer = setInterval(() => {
+
+		// poll until it exits
+		const poll = setInterval(() => {
 			const stat = window.cep.process.isRunning(pid);
 			if (stat.err !== 0) {
-				clearInterval(timer);
-				const msg = `Error polling process: ${stat.err}`;
-				return reject(msg);
+				clearInterval(poll);
+				return reject(`Error polling process: ${stat.err}`);
 			}
 			if (!stat.data) {
-				clearInterval(timer);
-				
-				window.cep.process.stdout(pid, (stdout) => {
+				clearInterval(poll);
+				// read its stderr
+				// window.cep.process.stderr(pid, stdout => {
+				// 	if (!stdout) {
+				// 		return reject("No output from analysis tool");
+				// 	}
+				// 	document.getElementById("out").textContent = stdout;
+				// 	resolve(stdout);
+				// });
+				window.cep.process.stdout(pid, stdout => {
 					if (!stdout) {
-						const msg = "No output from analysis tool.";
-						return reject(msg);
+						return reject("No output from analysis tool");
 					}
+					document.getElementById("out").textContent = stdout;
 					resolve(stdout);
 				});
-
-				//to check stderr(console.error())
-				// window.cep.process.stderr(pid, (stderr) => {
-				// 	if (!stderr) {
-				// 		const msg = "No output from analysis tool.";
-				// 		document.getElementById("err").textContent = msg;
-				// 		return reject(msg);
-				// 	}
-				// 	resolve(stderr);
-				// });
 			}
-		}, 500);
+		}, 300);
 	});
 }
