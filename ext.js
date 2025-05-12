@@ -273,7 +273,7 @@ async function runAudioAnalysis(cliArgs) {
 
 		// pick the binary
 		const exeName = isWin ? "audioTool-win.exe" : "audioTool-mac";
-		let exePath = extDir + sep + "payloads" + sep + exeName;
+		let exePath = extDir + sep + "audioAnalysis" + sep + exeName;
 		if (isWin) exePath = exePath.replace(/\\/g, "\\\\");
 
 		// start the process
