@@ -972,9 +972,6 @@ body {
   }
 }
 
-/* Authentication styles for Multi-Camera Edit Tool */
-
-/* Auth Modal */
 .auth-modal {
   position: fixed;
   top: 0;
