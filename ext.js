@@ -304,7 +304,7 @@ async function runAudioAnalysis(cliArgs) {
 					if (!stdout) {
 						return reject("No output from analysis tool");
 					}
-					document.getElementById("out").textContent = stdout;
+					// document.getElementById("out").textContent = stdout;
 					resolve(stdout);
 				});
 			}

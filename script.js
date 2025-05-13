@@ -1,10 +1,13 @@
 /**
- * Multi-Camera Edit Tool
- * JavaScript functionality for the Timbre Panel interface
+ * Multi-Camera Edit Tool - Camera Editing Logic
+ * Handles track validation, audio analysis, and multi-camera editing functionality
  */
 
 document.addEventListener("DOMContentLoaded", () => {
   const csInterface = new CSInterface()
+  const SystemPath = {
+    EXTENSION: "EXTENSION",
+  }
 
   // Update the appState to include more validation fields and track information
   const appState = {
@@ -63,6 +66,49 @@ document.addEventListener("DOMContentLoaded", () => {
     currentPresetIndex: null,
   }
 
+  // DOM Elements
+  const elements = {
+    // Form elements
+    cuttingMethod: document.getElementById("cuttingMethod"),
+    frequency: document.getElementById("frequency"),
+    transitions: document.getElementById("transitions"),
+    numSpeakers: document.getElementById("numSpeakers"),
+    numCameras: document.getElementById("numCameras"),
+    speakerNames: document.getElementById("speakerNames"),
+    trackMapping: document.getElementById("trackMapping"),
+    minCutDuration: document.getElementById("minCutDuration"),
+    audioThreshold: document.getElementById("audioThreshold"),
+    transitionType: document.getElementById("transitionType"),
+
+    // Buttons
+    createEditBtn: document.getElementById("createEditBtn"),
+    resetFormBtn: document.getElementById("resetFormBtn"),
+    presetSelect: document.getElementById("presetSelect"),
+    presetNewBtn: document.getElementById("presetNewBtn"),
+    presetUpdateBtn: document.getElementById("presetUpdateBtn"),
+    presetDeleteBtn: document.getElementById("presetDeleteBtn"),
+    themeToggleBtn: document.getElementById("themeToggleBtn"),
+    refreshTracksBtn: document.getElementById("refreshTracksBtn"),
+
+    // Advanced settings
+    advancedSection: document.querySelector(".collapsible"),
+    collapseBtn: document.querySelector(".collapse-btn"),
+
+    // Global error display
+    globalErrorContainer: document.getElementById("globalErrorContainer"),
+
+    // Track validation display
+    trackValidationContainer: document.getElementById("trackValidationContainer"),
+    trackInfoBanner: document.querySelector(".track-info-banner"),
+
+    // Modal elements
+    presetModal: document.getElementById("presetModal"),
+    presetName: document.getElementById("presetName"),
+    savePresetBtn: document.getElementById("savePresetBtn"),
+    cancelPresetBtn: document.getElementById("cancelPresetBtn"),
+    modalCloseBtn: document.getElementById("modalCloseBtn"),
+  }
+
   function logToPanel(message, type = "info") {
     try {
       // Convert objects to strings if needed
@@ -105,32 +151,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Load presets from localStorage
-  function loadPresetsFromStorage() {
-    try {
-      const savedPresets = localStorage.getItem("timbrePresets")
-      if (savedPresets) {
-        appState.presets = JSON.parse(savedPresets)
-        updatePresetDropdown()
-        logToPanel("Presets loaded from storage", "info")
-      }
-    } catch (error) {
-      logToPanel(`Error loading presets: ${error.message}`, "error")
-      showToast("Error loading saved presets", "error")
-    }
-  }
-
-  // Save presets to localStorage
-  function savePresetsToStorage() {
-    try {
-      localStorage.setItem("timbrePresets", JSON.stringify(appState.presets))
-      logToPanel("Presets saved to storage", "info")
-    } catch (error) {
-      logToPanel(`Error saving presets: ${error.message}`, "error")
-      showToast("Error saving presets", "error")
-    }
-  }
-
   // Load theme preference from localStorage
   function loadThemePreference() {
     try {
@@ -155,48 +175,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // DOM Elements
-  const elements = {
-    // Form elements
-    cuttingMethod: document.getElementById("cuttingMethod"),
-    frequency: document.getElementById("frequency"),
-    transitions: document.getElementById("transitions"),
-    numSpeakers: document.getElementById("numSpeakers"),
-    numCameras: document.getElementById("numCameras"),
-    speakerNames: document.getElementById("speakerNames"),
-    trackMapping: document.getElementById("trackMapping"),
-    minCutDuration: document.getElementById("minCutDuration"),
-    audioThreshold: document.getElementById("audioThreshold"),
-    transitionType: document.getElementById("transitionType"),
-
-    // Buttons
-    createEditBtn: document.getElementById("createEditBtn"),
-    resetFormBtn: document.getElementById("resetFormBtn"),
-    presetSelect: document.getElementById("presetSelect"),
-    presetNewBtn: document.getElementById("presetNewBtn"),
-    presetUpdateBtn: document.getElementById("presetUpdateBtn"),
-    presetDeleteBtn: document.getElementById("presetDeleteBtn"),
-    themeToggleBtn: document.getElementById("themeToggleBtn"),
-
-    // Advanced settings
-    advancedSection: document.querySelector(".collapsible"),
-    collapseBtn: document.querySelector(".collapse-btn"),
-
-    // Global error display
-    globalErrorContainer: document.getElementById("globalErrorContainer"),
-
-    // Track validation display
-    trackValidationContainer: document.getElementById("trackValidationContainer"),
-    trackInfoBanner: document.querySelector(".track-info-banner"),
-
-    // Modal elements
-    presetModal: document.getElementById("presetModal"),
-    presetName: document.getElementById("presetName"),
-    savePresetBtn: document.getElementById("savePresetBtn"),
-    cancelPresetBtn: document.getElementById("cancelPresetBtn"),
-    modalCloseBtn: document.getElementById("modalCloseBtn"),
-  }
-
   /**
    * Initialize the application
    * This is the main entry point
@@ -204,12 +182,18 @@ document.addEventListener("DOMContentLoaded", () => {
   function init() {
     logToPanel("Initializing Multi-Camera Edit Tool", "info")
 
+    // Check authentication before initializing the app
+    if (!window.TimbreAuthUI.checkAuthStatus()) {
+      // If not authenticated, don't initialize the app
+      return
+    }
+
     // Load theme preference
     loadThemePreference()
     updateThemeUI()
 
     // Load presets from storage
-    loadPresetsFromStorage()
+    window.PresetManager.loadPresetsFromStorage(appState, elements, logToPanel, showToast)
 
     // Set up initial UI for speakers only
     updateSpeakersUI()
@@ -251,6 +235,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Check track info from Premiere Pro first
     logToPanel("Requesting track information from Premiere Pro...", "info")
+    loadTrackInfo()
+  }
+
+  /**
+   * Load track information from Premiere Pro
+   */
+  function loadTrackInfo() {
     checkTrackInfo((trackInfo) => {
       logToPanel(`Track info loaded: ${JSON.stringify(trackInfo)}`, "info")
 
@@ -341,8 +332,57 @@ document.addEventListener("DOMContentLoaded", () => {
           ${!tracksMatch ? "<strong>Warning: Track counts do not match!</strong>" : ""}
           <br>Each track must have exactly one clip. Tracks with multiple clips or no clips will cause errors.
         </span>
+        <button id="refreshTracksBtn" class="refresh-btn" title="Refresh track information">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 4v6h-6"></path>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+        </button>
+      `
+
+      // Add event listener to the refresh button
+      const refreshBtn = document.getElementById("refreshTracksBtn")
+      if (refreshBtn) {
+        refreshBtn.addEventListener("click", handleRefreshTracks)
+      }
+    }
+  }
+
+  /**
+   * Handle refresh tracks button click
+   */
+  function handleRefreshTracks() {
+    logToPanel("Refreshing track information...", "info")
+
+    // Show loading state
+    if (elements.trackMapping) {
+      elements.trackMapping.innerHTML = `
+        <div class="loading-indicator">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="loading-spinner">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 6v6l4 2"></path>
+          </svg>
+          <span>Refreshing track information from Premiere Pro...</span>
+        </div>
       `
     }
+
+    // Clear any existing error messages
+    if (elements.globalErrorContainer) {
+      elements.globalErrorContainer.textContent = ""
+      elements.globalErrorContainer.style.display = "none"
+    }
+
+    if (elements.trackValidationContainer) {
+      elements.trackValidationContainer.textContent = ""
+      elements.trackValidationContainer.style.display = "none"
+    }
+
+    // Reload track information
+    loadTrackInfo()
+
+    // Show toast notification
+    showToast("Track information refreshed", "info")
   }
 
   /**
@@ -364,25 +404,45 @@ document.addEventListener("DOMContentLoaded", () => {
     // Button click events
     elements.createEditBtn.addEventListener("click", handleCreateEdit)
     elements.resetFormBtn.addEventListener("click", handleResetForm)
-    elements.presetNewBtn.addEventListener("click", openPresetModal)
-    elements.presetDeleteBtn.addEventListener("click", handleDeletePreset)
-    elements.presetSelect.addEventListener("change", handlePresetSelect)
+    elements.presetNewBtn.addEventListener("click", () =>
+      window.PresetManager.openPresetModal(appState, elements, validateForm, logToPanel, showToast),
+    )
+    elements.presetDeleteBtn.addEventListener("click", () =>
+      window.PresetManager.handleDeletePreset(appState, elements, logToPanel, showToast),
+    )
+    elements.presetSelect.addEventListener("change", () =>
+      window.PresetManager.handlePresetSelect(
+        appState,
+        elements,
+        updateSpeakersUI,
+        updateTrackMappingUI,
+        clearAllErrors,
+        logToPanel,
+        showToast,
+      ),
+    )
     elements.themeToggleBtn.addEventListener("click", toggleTheme)
 
     // Add update preset button event listener
     if (elements.presetUpdateBtn) {
-      elements.presetUpdateBtn.addEventListener("click", updateCurrentPreset)
+      elements.presetUpdateBtn.addEventListener("click", () =>
+        window.PresetManager.updateCurrentPreset(appState, elements, validateForm, logToPanel, showToast),
+      )
     }
 
     // Modal events
-    elements.savePresetBtn.addEventListener("click", handleSavePreset)
-    elements.cancelPresetBtn.addEventListener("click", closePresetModal)
-    elements.modalCloseBtn.addEventListener("click", closePresetModal)
+    elements.savePresetBtn.addEventListener("click", () =>
+      window.PresetManager.handleSavePreset(appState, elements, logToPanel, showToast),
+    )
+    elements.cancelPresetBtn.addEventListener("click", () =>
+      window.PresetManager.closePresetModal(elements, logToPanel),
+    )
+    elements.modalCloseBtn.addEventListener("click", () => window.PresetManager.closePresetModal(elements, logToPanel))
 
     // Close modal when clicking outside
     window.addEventListener("click", (e) => {
       if (e.target === elements.presetModal) {
-        closePresetModal()
+        window.PresetManager.closePresetModal(elements, logToPanel)
       }
     })
 
@@ -402,6 +462,26 @@ document.addEventListener("DOMContentLoaded", () => {
         return message
       }
     })
+
+    // Add license management button to header
+    const panelHeader = document.querySelector(".panel-header")
+    if (panelHeader) {
+      const licenseBtn = document.createElement("button")
+      licenseBtn.className = "license-btn"
+      licenseBtn.title = "License Management"
+      licenseBtn.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+      `
+
+      licenseBtn.addEventListener("click", () => {
+        window.TimbreAuthUI.showAuthModal()
+      })
+
+      panelHeader.appendChild(licenseBtn)
+    }
 
     logToPanel("Event listeners set up successfully", "info")
   }
@@ -460,138 +540,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     showToast("Form has been reset", "info")
     logToPanel("Form reset complete", "info")
-  }
-
-  /**
-   * Handle the delete preset button click
-   */
-  function handleDeletePreset() {
-    if (appState.currentPresetIndex === null) {
-      showToast("No preset selected", "warning")
-      logToPanel("Delete preset attempted with no preset selected", "warning")
-      return
-    }
-
-    const presetName = appState.presets[appState.currentPresetIndex].name
-
-    if (confirm(`Are you sure you want to delete the preset "${presetName}"?`)) {
-      logToPanel(`Deleting preset: ${presetName}`, "info")
-
-      // Remove the preset
-      appState.presets.splice(appState.currentPresetIndex, 1)
-
-      // Save to storage
-      savePresetsToStorage()
-
-      // Update the dropdown
-      updatePresetDropdown()
-
-      // Reset current preset
-      appState.currentPresetIndex = null
-      elements.presetSelect.value = ""
-
-      showToast(`Preset "${presetName}" has been deleted`, "success")
-    }
-  }
-
-  /**
-   * Open the preset modal for saving a new preset
-   */
-  function openPresetModal() {
-    if (!validateForm()) {
-      showToast("Please fix the errors before saving a preset", "error")
-      logToPanel("Cannot open preset modal due to validation errors", "error")
-      return
-    }
-
-    // Set flag for new preset
-    appState.ui.isNewPreset = true
-
-    // If there are unsaved changes to a current preset, ask to save them first
-    if (appState.ui.isDirty && appState.currentPresetIndex !== null) {
-      const currentPresetName = appState.presets[appState.currentPresetIndex].name
-      if (
-        confirm(`You have unsaved changes to preset "${currentPresetName}". Save changes before creating a new preset?`)
-      ) {
-        // Update the current preset with current form data
-        const updatedPresetData = JSON.parse(JSON.stringify(appState.formData))
-        appState.presets[appState.currentPresetIndex].data = updatedPresetData
-        savePresetsToStorage()
-        showToast(`Changes to preset "${currentPresetName}" saved`, "success")
-        logToPanel(`Updated preset "${currentPresetName}" before creating new preset`, "info")
-      }
-    }
-
-    // Clear the preset name field for a new preset
-    elements.presetName.value = ""
-    elements.presetModal.classList.add("active")
-    elements.presetName.focus()
-
-    // Clear any previous errors
-    document.getElementById("presetNameError").textContent = ""
-    elements.presetName.classList.remove("error")
-
-    logToPanel("Preset modal opened for new preset", "info")
-  }
-
-  /**
-   * Close the preset modal
-   */
-  function closePresetModal() {
-    elements.presetModal.classList.remove("active")
-    logToPanel("Preset modal closed", "info")
-  }
-
-  /**
-   * Handle the save preset button click
-   */
-  function handleSavePreset() {
-    const presetName = elements.presetName.value.trim()
-    logToPanel(`Attempting to save preset: "${presetName}"`, "info")
-
-    if (!presetName) {
-      document.getElementById("presetNameError").textContent = "Preset name is required"
-      elements.presetName.classList.add("error")
-      logToPanel("Preset save failed: Name is required", "error")
-      return
-    }
-
-    // Check for duplicate names
-    const isDuplicate = appState.presets.some((preset) => preset.name === presetName)
-    if (isDuplicate) {
-      document.getElementById("presetNameError").textContent = "A preset with this name already exists"
-      elements.presetName.classList.add("error")
-      logToPanel("Preset save failed: Duplicate name", "error")
-      return
-    }
-
-    // Create a deep copy of the current form data
-    const presetData = JSON.parse(JSON.stringify(appState.formData))
-
-    // Add the new preset
-    appState.presets.push({
-      name: presetName,
-      data: presetData,
-    })
-
-    // Save to storage
-    savePresetsToStorage()
-
-    // Update the dropdown
-    updatePresetDropdown()
-
-    // Select the new preset
-    elements.presetSelect.value = (appState.presets.length - 1).toString()
-    appState.currentPresetIndex = appState.presets.length - 1
-
-    // Reset dirty state
-    appState.ui.isDirty = false
-
-    // Close modal
-    closePresetModal()
-
-    showToast(`Preset "${presetName}" has been saved`, "success")
-    logToPanel(`Preset "${presetName}" saved successfully`, "info")
   }
 
   /**
@@ -735,6 +683,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     logToPanel(`Updating speakers UI for ${speakerCount} speakers`, "info")
 
+    // Clear the container
     container.innerHTML = ""
 
     // Create inputs for each speaker
@@ -756,7 +705,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Add event listener to update state on input
       input.addEventListener("input", (e) => {
         appState.formData.speakerNames[i] = e.target.value
-        updateTrackMappingUI()
+        updateTrackMappingUI() // Update track mapping to reflect new names
         clearError(`speakerName${i}`)
         appState.ui.isDirty = true
         logToPanel(`Speaker ${i + 1} name updated to: ${e.target.value}`, "info")
@@ -900,7 +849,7 @@ document.addEventListener("DOMContentLoaded", () => {
       videoTrackSelect.id = `videoTrack${i}`
 
       // Add options for video tracks
-      const videoTrackCount = appState.trackInfo.videoTracksCount || 0
+      const videoTrackCount = appState.trackInfo.videoTracksCount || 8 // Default to 8 if not loaded yet
 
       for (let j = 1; j <= videoTrackCount; j++) {
         const option = document.createElement("option")
@@ -958,7 +907,7 @@ document.addEventListener("DOMContentLoaded", () => {
       audioTrackSelect.id = `audioTrack${i}`
 
       // Add options for audio tracks
-      const audioTrackCount = appState.trackInfo.audioTracksCount || 0
+      const audioTrackCount = appState.trackInfo.audioTracksCount || 8 // Default to 8 if not loaded yet
 
       for (let j = 1; j <= audioTrackCount; j++) {
         const option = document.createElement("option")
@@ -1458,100 +1407,103 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /**
-   * Update the handleCreateEdit function to include track validation
+   * Handle the create edit button click
+   * This function validates the form, runs audio analysis, and creates the multi-camera edit
    */
   async function handleCreateEdit() {
     if (appState.ui.isProcessing) {
-      logToPanel("Create edit button clicked while already processing", "warning");
-      return;
+      logToPanel("Create edit button clicked while already processing", "warning")
+      return
     }
-    logToPanel("Create edit button clicked", "info");
+    logToPanel("Create edit button clicked", "info")
 
-    appState.ui.isProcessing = true;
-    elements.createEditBtn.disabled = true;
+    appState.ui.isProcessing = true
+    elements.createEditBtn.disabled = true
     elements.createEditBtn.innerHTML = `
-      <span class="btn-icon">
-        <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
-                   M16.24 16.24l2.83 2.83M2 12h4M18 12h4
-                   M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-        </svg>
-      </span>
-      Checking tracks...
-    `;
+    <span class="btn-icon">
+      <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
+                 M16.24 16.24l2.83 2.83M2 12h4M18 12h4
+                 M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+      </svg>
+    </span>
+    Checking tracks...
+  `
 
     try {
-      await new Promise(resolve => checkTrackInfo(resolve));
-      logToPanel("Track check complete, validating form", "info");
-    } catch (e) {
-      // if your checkTrackInfo can reject, handle here
-      logToPanel("Track check failed: " + e, "error");
-      resetCreateButton();
-      return;
-    }
+      // Check track info from Premiere Pro
+      await new Promise((resolve) => checkTrackInfo(resolve))
+      logToPanel("Track check complete, validating form", "info")
 
-    if (!validateForm()) {
-      showToast("Please fix the errors before creating the edit", "error");
-      logToPanel("Form validation failed, edit creation aborted", "error");
-      scrollToFirstErrorField();
-      resetCreateButton();
-      return;
-    }
-
-    elements.createEditBtn.innerHTML = `
-      <span class="btn-icon">
-        <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
-                   M16.24 16.24l2.83 2.83M2 12h4M18 12h4
-                   M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-        </svg>
-      </span>
-      Processing...
-    `;
-
-    const editData = {
-      cuttingMethod: appState.formData.cuttingMethod,
-      frequency: appState.formData.frequency,
-      transitions: appState.formData.transitions,
-      speakers: [],
-      minCutDuration: appState.formData.minCutDuration,
-      audioThreshold: appState.formData.audioThreshold,
-      transitionType: appState.formData.transitionType,
-      trackValidation: appState.trackValidation,
-      trackInfo: appState.trackInfo,
-    };
-
-    for (let i = 0; i < appState.formData.numSpeakers; i++) {
-      const speakerName = appState.formData.speakerNames[i] || `Speaker ${i + 1}`;
-      const cameras = [];
-      for (let j = 0; j < appState.formData.numCameras; j++) {
-        if (appState.formData.trackMapping[j] === i.toString()) {
-          cameras.push({
-            cameraIndex: j,
-            videoTrack: appState.formData.trackNumbers[j],
-            audioTrack: appState.formData.audioTrackNumbers[j],
-          });
-        }
+      // Validate the form with the updated track info
+      if (!validateForm()) {
+        resetCreateButton()
+        showToast("Please fix the errors before creating the edit", "error")
+        logToPanel("Form validation failed, edit creation aborted", "error")
+        scrollToFirstErrorField()
+        return
       }
-      editData.speakers.push({ name: speakerName, cameras });
-    }
 
-    logToPanel(`Sending edit data to Premiere Pro: ${JSON.stringify(editData)}`, "info");
+      elements.createEditBtn.innerHTML = `
+      <span class="btn-icon">
+        <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
+                   M16.24 16.24l2.83 2.83M2 12h4M18 12h4
+                   M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+      </span>
+      Processing audio analysis...
+    `
 
-    const { frequency, minCutDuration, audioThreshold } = appState.formData;
-    const mergeGapMap = {
-      low: minCutDuration * 0.25,
-      medium: minCutDuration * 0.5,
-      high: minCutDuration * 1.0,
-    };
-    const mergeGap = mergeGapMap[frequency] ?? (minCutDuration * 0.5);
+      const editData = {
+        cuttingMethod: appState.formData.cuttingMethod,
+        frequency: appState.formData.frequency,
+        transitions: appState.formData.transitions,
+        speakers: [],
+        minCutDuration: appState.formData.minCutDuration,
+        audioThreshold: appState.formData.audioThreshold,
+        transitionType: appState.formData.transitionType,
+        trackValidation: appState.trackValidation,
+        trackInfo: appState.trackInfo,
+      }
 
-    csInterface.evalScript("$._PPP_.createClone()");
-    logToPanel("Created clone", "info");
+      // Prepare speaker and camera data
+      for (let i = 0; i < appState.formData.numSpeakers; i++) {
+        const speakerName = appState.formData.speakerNames[i] || `Speaker ${i + 1}`
+        const cameras = []
 
-    try {
+        // Find all cameras assigned to this speaker
+        for (let j = 0; j < appState.formData.numCameras; j++) {
+          if (appState.formData.trackMapping[j] === i.toString()) {
+            cameras.push({
+              cameraIndex: j,
+              videoTrack: appState.formData.trackNumbers[j],
+              audioTrack: appState.formData.audioTrackNumbers[j],
+            })
+          }
+        }
+
+        editData.speakers.push({
+          name: speakerName,
+          cameras: cameras,
+        })
+      }
+
+      logToPanel(`Sending edit data to Premiere Pro: ${JSON.stringify(editData)}`, "info")
+
+      const { frequency, minCutDuration, audioThreshold } = appState.formData;
+      const mergeGapMap = {
+        low: minCutDuration * 0.25,
+        medium: minCutDuration * 0.5,
+        high: minCutDuration * 1.0,
+      };
+      const mergeGap = mergeGapMap[frequency] ?? (minCutDuration * 0.5);
+
+      csInterface.evalScript("$._PPP_.createClone()");
+      logToPanel("Created clone", "info");
+
       const args = [];
       for (let i = 0; i < appState.formData.numCameras; i++) {
         if (!appState.formData.trackMapping[i]) continue;
@@ -1596,176 +1548,58 @@ document.addEventListener("DOMContentLoaded", () => {
 
       showToast("All done!", "success");
       logToPanel("Completed multi-camera audio analysis and edit", "success");
-    }
-    catch (err) {
-      showToast(`Error during analysis: ${err}`, "error");
-      logToPanel(`Error: ${err}`, "error");
-    }
-    finally {
-      resetCreateButton();
-      appState.ui.isDirty = false;
-      appState.ui.isProcessing = false;
-    }
-
-  }
-
-  function resetCreateButton() {
-    elements.createEditBtn.disabled = false;
-    elements.createEditBtn.innerHTML = `
-      <span class="btn-icon">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
-                   M16.24 16.24l2.83 2.83M2 12h4M18 12h4
-                   M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-        </svg>
-      </span>
-      Create Multi-Cam Edit
-    `;
-  }
-
-  function scrollToFirstErrorField() {
-    const firstErrorField = Object.keys(appState.ui.errors)[0];
-    if (firstErrorField) {
-      const el = document.getElementById(firstErrorField);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (error) {
+      logToPanel(`Error in handleCreateEdit: ${error.message || "Unknown error"}`, "error")
+      showToast(`Error: ${error.message || "Unknown error"}`, "error")
+    } finally {
+      resetCreateButton()
     }
   }
 
   /**
-   * Handle preset selection
+   * Reset the create edit button to its default state
    */
-  function handlePresetSelect() {
-    const selectedIndex = elements.presetSelect.value
+  function resetCreateButton() {
+    appState.ui.isProcessing = false
+    elements.createEditBtn.disabled = false
+    elements.createEditBtn.innerHTML = `
+    <span class="btn-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
+                 M16.24 16.24l2.83 2.83M2 12h4M18 12h4
+                 M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+      </svg>
+    </span>
+    Create Multi-Cam Edit
+  `
+  }
 
-    if (!selectedIndex) return
-
-    // Check for unsaved changes
-    if (appState.ui.isDirty && appState.currentPresetIndex !== Number.parseInt(selectedIndex)) {
-      if (appState.currentPresetIndex !== null) {
-        const currentPresetName = appState.presets[appState.currentPresetIndex].name
-        if (
-          confirm(
-            `You have unsaved changes to preset "${currentPresetName}". Save changes before loading a different preset?`,
-          )
-        ) {
-          // Save changes to current preset
-          const updatedPresetData = JSON.parse(JSON.stringify(appState.formData))
-          appState.presets[appState.currentPresetIndex].data = updatedPresetData
-          savePresetsToStorage()
-          showToast(`Changes to preset "${currentPresetName}" saved`, "success")
-          logToPanel(`Changes to preset "${currentPresetName}" saved before loading new preset`, "info")
-        }
-      } else if (confirm("You have unsaved changes. Save as a new preset before loading?")) {
-        // Open modal to save as new preset
-        openPresetModal()
-        // Revert selection since we're saving first
-        elements.presetSelect.value = appState.currentPresetIndex !== null ? appState.currentPresetIndex.toString() : ""
-        return
+  /**
+   * Scroll to the first error field in the form
+   */
+  function scrollToFirstErrorField() {
+    const firstErrorField = Object.keys(appState.ui.errors)[0]
+    if (firstErrorField) {
+      const element = document.getElementById(firstErrorField)
+      if (element) {
+        element.classList.add("shake")
+        setTimeout(() => {
+          element.classList.remove("shake")
+        }, 600)
+        element.scrollIntoView({ behavior: "smooth", block: "center" })
       }
     }
 
-    // Load the selected preset
-    const preset = appState.presets[selectedIndex]
-    loadPreset(preset.data)
-
-    // Update current preset index
-    appState.currentPresetIndex = Number.parseInt(selectedIndex)
-
-    // Reset dirty state
-    appState.ui.isDirty = false
-
-    showToast(`Preset "${preset.name}" loaded`, "info")
-    logToPanel(`Preset "${preset.name}" loaded`, "info")
-  }
-
-  /**
-   * Update an existing preset
-   */
-  function updateCurrentPreset() {
-    if (appState.currentPresetIndex === null) {
-      openPresetModal() // If no preset is selected, open modal to create new
-      return
+    // If there's a global error, scroll to it
+    if (appState.ui.globalError && elements.globalErrorContainer) {
+      elements.globalErrorContainer.scrollIntoView({ behavior: "smooth", block: "center" })
     }
 
-    if (!validateForm()) {
-      showToast("Please fix the errors before updating the preset", "error")
-      logToPanel("Cannot update preset due to validation errors", "error")
-      return
+    // If there are track validation errors, scroll to them
+    if (!appState.trackValidation.valid && elements.trackValidationContainer) {
+      elements.trackValidationContainer.scrollIntoView({ behavior: "smooth", block: "center" })
     }
-
-    const presetName = appState.presets[appState.currentPresetIndex].name
-
-    if (confirm(`Update preset "${presetName}" with current settings?`)) {
-      // Update the preset data
-      const updatedPresetData = JSON.parse(JSON.stringify(appState.formData))
-      appState.presets[appState.currentPresetIndex].data = updatedPresetData
-
-      // Save to storage
-      savePresetsToStorage()
-
-      // Reset dirty state
-      appState.ui.isDirty = false
-
-      showToast(`Preset "${presetName}" has been updated`, "success")
-      logToPanel(`Preset "${presetName}" updated successfully`, "info")
-    }
-  }
-
-  /**
-   * Load a preset into the form
-   * @param {Object} presetData - The preset data to load
-   */
-  function loadPreset(presetData) {
-    logToPanel(`Loading preset data: ${JSON.stringify(presetData)}`, "info")
-
-    // Update state
-    appState.formData = JSON.parse(JSON.stringify(presetData))
-
-    // Update UI
-    elements.cuttingMethod.value = presetData.cuttingMethod
-    elements.frequency.value = presetData.frequency
-    elements.transitions.checked = presetData.transitions
-    elements.numSpeakers.value = presetData.numSpeakers
-    elements.numCameras.value = presetData.numCameras
-
-    // Update UI components
-    updateSpeakersUI()
-    updateTrackMappingUI()
-
-    // Update advanced settings if they exist
-    if (elements.minCutDuration) {
-      elements.minCutDuration.value = presetData.minCutDuration || 1.5
-    }
-    if (elements.audioThreshold) {
-      elements.audioThreshold.value = presetData.audioThreshold || "-30dB"
-    }
-    if (elements.transitionType) {
-      elements.transitionType.value = presetData.transitionType || "cut"
-    }
-
-    // Clear errors
-    clearAllErrors()
-  }
-
-  /**
-   * Update the preset dropdown with current presets
-   */
-  function updatePresetDropdown() {
-    const select = elements.presetSelect
-
-    // Clear current options
-    select.innerHTML = '<option value="" disabled selected>Select preset...</option>'
-
-    // Add options for each preset
-    appState.presets.forEach((preset, index) => {
-      const option = document.createElement("option")
-      option.value = index.toString()
-      option.textContent = preset.name
-      select.appendChild(option)
-    })
-
-    logToPanel(`Preset dropdown updated with ${appState.presets.length} presets`, "info")
   }
 
   /**
@@ -1856,13 +1690,20 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initialize the application
   init()
 
-  const container = document.getElementById("testxyz")
-
-  container.addEventListener("click", () => {
-    let csInterface = new CSInterface();
-    csInterface.evalScript(`$._PPP_.searchForBinWithName("Bin")`, (result) => {
-      document.getElementById("out").textContent = result
-    })
-    // csInterface.evalScript('$._PPP_.createSubClip()')
-  });
+  // Export functions for use by other modules
+  window.CameraEdit = {
+    appState,
+    elements,
+    logToPanel,
+    showToast,
+    validateForm,
+    updateSpeakersUI,
+    updateTrackMappingUI,
+    clearAllErrors,
+    handleCreateEdit,
+    resetCreateButton,
+    scrollToFirstErrorField,
+    setError,
+    clearError,
+  }
 })
