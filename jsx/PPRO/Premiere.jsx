@@ -3025,7 +3025,7 @@ $._PPP_ = {
 			return [];
 		}
 	},
-	
+
 	getVideoTracks: function () {
 		try {
 			var seq = app.project.activeSequence;
@@ -3145,5 +3145,4 @@ $._PPP_ = {
 			$._PPP_.updateEventPanel("Error in processTimeline: " + err.toString());
 		}
 	},
-
 }

@@ -99,6 +99,50 @@ function loadJSX() {
   csInterface.evalScript("$._ext.evalFiles(\"" + extensionRootApp + "\")");
 }
 
+function logToPanel(message, type = "info") {
+    try {
+      const csInterface = new CSInterface()
+
+      // Convert objects to strings if needed
+      if (typeof message === "object") {
+        try {
+          message = JSON.stringify(message)
+        } catch (e) {
+          message = "[Object cannot be stringified]"
+        }
+      }
+
+      // Escape single quotes to prevent JavaScript errors
+      const escapedMessage = message.toString().replace(/'/g, "\\'")
+
+      let formattedMessage
+      switch (type) {
+        case "error":
+          formattedMessage = `ERROR: ${escapedMessage}`
+          break
+        case "warning":
+          formattedMessage = `WARNING: ${escapedMessage}`
+          break
+        default:
+          formattedMessage = escapedMessage
+      }
+
+      csInterface.evalScript(`$._PPP_.updateEventPanel('${formattedMessage}')`)
+    } catch (error) {
+      // If this fails, we have no way to log the error
+      // We could try to display it in the UI as a last resort
+      try {
+        const errorContainer = document.getElementById("globalErrorContainer")
+        if (errorContainer) {
+          errorContainer.textContent = `Logging error: ${error.message}`
+          errorContainer.style.display = "block"
+        }
+      } catch (e) {
+        // At this point, we can't do anything more
+      }
+    }
+  }
+
 document.addEventListener("DOMContentLoaded", () => {
   // Update the appState to include more validation fields and track information
   const appState = {
@@ -166,53 +210,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function logToPanel(message, type = "info") {
-    try {
-      const csInterface = new CSInterface()
-
-      // Convert objects to strings if needed
-      if (typeof message === "object") {
-        try {
-          message = JSON.stringify(message)
-        } catch (e) {
-          message = "[Object cannot be stringified]"
-        }
-      }
-
-      // Escape single quotes to prevent JavaScript errors
-      const escapedMessage = message.toString().replace(/'/g, "\\'")
-
-      let formattedMessage
-      switch (type) {
-        case "error":
-          formattedMessage = `ERROR: ${escapedMessage}`
-          break
-        case "warning":
-          formattedMessage = `WARNING: ${escapedMessage}`
-          break
-        default:
-          formattedMessage = escapedMessage
-      }
-
-      csInterface.evalScript(`$._PPP_.updateEventPanel('${formattedMessage}')`)
-    } catch (error) {
-      // If this fails, we have no way to log the error
-      // We could try to display it in the UI as a last resort
-      try {
-        const errorContainer = document.getElementById("globalErrorContainer")
-        if (errorContainer) {
-          errorContainer.textContent = `Logging error: ${error.message}`
-          errorContainer.style.display = "block"
-        }
-      } catch (e) {
-        // At this point, we can't do anything more
-      }
-    }
-  }
   const authState = appState.authState;
   function loadApiKey() {
     try {
-      const saved = localStorage.getItem("api");
+      const saved = localStorage.getItem("timbreAuth");
       if (saved) {
         const p = JSON.parse(saved);
         authState.apiKey = p.apiKey;
@@ -455,7 +456,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function onload() {
     setupAuthModalEvents();
-    if (checkAuthStatus()) return;
+    if (checkAuthStatus()) {
+      showApp();
+      return;
+    }
     const apiInput = document.getElementById("apiKey");
     if (apiInput) {
       apiInput.addEventListener("keydown", e => {
@@ -731,6 +735,7 @@ document.addEventListener("DOMContentLoaded", () => {
     elements.presetDeleteBtn.addEventListener("click", handleDeletePreset)
     elements.presetSelect.addEventListener("change", handlePresetSelect)
     elements.themeToggleBtn.addEventListener("click", toggleTheme)
+    logToPanel(`${elements.themeToggleBtn ? "Theme toggle button found" : "Theme toggle button not found"}`, "info")
 
     // Add update preset button event listener
     if (elements.presetUpdateBtn) {
@@ -1971,7 +1976,6 @@ document.addEventListener("DOMContentLoaded", () => {
       appState.ui.isDirty = false;
       appState.ui.isProcessing = false;
     }
-
   }
 
   function resetCreateButton() {
@@ -2218,65 +2222,115 @@ document.addEventListener("DOMContentLoaded", () => {
     button.appendChild(circle)
   }
 
-  // Initialize the application
-  // init()
+  // async function runAudioAnalysis(cliArgs) {
+  //   return new Promise((resolve, reject) => {
+  //     const cs = new CSInterface();
+  //     const extDir = cs.getSystemPath(SystemPath.EXTENSION);
+  //     const isWin = cs.getOSInformation().includes("Windows");
+  //     const sep = isWin ? "\\" : "/";
+
+  //     if (!Array.isArray(cliArgs) || cliArgs.length < 4) {
+  //       return reject("runAudioAnalysis requires at least one file+tracks and the 3 params");
+  //     }
+
+  //     const safeArgs = cliArgs.map(arg => {
+  //       const s = String(arg);
+  //       return isWin ? s.replace(/\\/g, "\\\\") : s;
+  //     });
+
+  //     // pick the binary
+  //     const exeName = isWin ? "audioTool-win.exe" : "audioTool-mac";
+  //     let exePath = extDir + sep + "audioAnalysis" + sep + exeName;
+  //     if (isWin) exePath = exePath.replace(/\\/g, "\\\\");
+
+  //     // start the process
+  //     const startRes = window.cep.process.createProcess(exePath, ...safeArgs);
+  //     if (startRes.err !== 0) {
+  //       return reject(`Error starting analysis process: ${startRes.err}`);
+  //     }
+  //     const pid = startRes.data;
+
+  //     // poll until it exits
+  //     const poll = setInterval(() => {
+  //       const stat = window.cep.process.isRunning(pid);
+  //       if (stat.err !== 0) {
+  //         clearInterval(poll);
+  //         return reject(`Error polling process: ${stat.err}`);
+  //       }
+  //       if (!stat.data) {
+  //         clearInterval(poll);
+  //         // read its stderr
+  //         // window.cep.process.stderr(pid, stdout => {
+  //         // 	if (!stdout) {
+  //         // 		return reject("No output from analysis tool");
+  //         // 	}
+  //         // 	resolve(stdout);
+  //         // });
+  //         window.cep.process.stdout(pid, stdout => {
+  //           if (!stdout) {
+  //             return reject("No output from analysis tool");
+  //           }
+  //           resolve(stdout);
+  //         });
+  //       }
+  //     }, 300);
+  //   });
+  // }
 
   async function runAudioAnalysis(cliArgs) {
-    return new Promise((resolve, reject) => {
-      const cs = new CSInterface();
-      const extDir = cs.getSystemPath(SystemPath.EXTENSION);
-      const isWin = cs.getOSInformation().includes("Windows");
-      const sep = isWin ? "\\" : "/";
+  return new Promise((resolve, reject) => {
+    const cs     = new CSInterface();
+    const extDir = cs.getSystemPath(SystemPath.EXTENSION);
+    const isWin  = cs.getOSInformation().includes("Windows");
+    const sep    = isWin ? "\\" : "/";
 
-      if (!Array.isArray(cliArgs) || cliArgs.length < 4) {
-        return reject("runAudioAnalysis requires at least one file+tracks and the 3 params");
+    if (!Array.isArray(cliArgs) || cliArgs.length < 4) {
+      return reject("runAudioAnalysis requires at least one file+tracks and the 3 params");
+    }
+
+    // Escape Windows backslashes
+    const safeArgs = cliArgs.map(a => String(a).replace(/\\/g, "\\\\"));
+
+    // Build path to your CLI in `audioanalysis/`
+    const exeName = isWin ? "audioTool-win.exe" : "audioTool-mac";
+    let exePath = extDir + sep + "audioAnalysis" + sep + exeName;
+    if (isWin) exePath = exePath.replace(/\\/g, "\\\\");
+
+    // Start the process directly (no cmd.exe /bin/sh)
+    const startRes = window.cep.process.createProcess(exePath, ...safeArgs);
+    if (startRes.err !== 0) {
+      return reject(`Error starting analysis process: ${startRes.err}`);
+    }
+    const pid = startRes.data;
+
+    // Capture both streams
+    let stdoutData = "";
+    let stderrData = "";
+    window.cep.process.stdout(pid, chunk => { stdoutData += chunk; });
+    window.cep.process.stderr(pid, chunk => { stderrData += chunk; });
+
+    // Poll until it exits
+    const poll = setInterval(() => {
+      const stat = window.cep.process.isRunning(pid);
+      if (stat.err !== 0) {
+        clearInterval(poll);
+        return reject(`Error polling process: ${stat.err}`);
       }
-
-      const safeArgs = cliArgs.map(arg => {
-        const s = String(arg);
-        return isWin ? s.replace(/\\/g, "\\\\") : s;
-      });
-
-      // pick the binary
-      const exeName = isWin ? "audioTool-win.exe" : "audioTool-mac";
-      let exePath = extDir + sep + "audioAnalysis" + sep + exeName;
-      if (isWin) exePath = exePath.replace(/\\/g, "\\\\");
-
-      // start the process
-      const startRes = window.cep.process.createProcess(exePath, ...safeArgs);
-      if (startRes.err !== 0) {
-        return reject(`Error starting analysis process: ${startRes.err}`);
+      if (!stat.data) {
+        clearInterval(poll);
+        // If any stderr output, treat as error
+        if (stderrData.trim()) {
+          return reject(stderrData.trim());
+        }
+        // Else return stdout (must be JSON)
+        if (!stdoutData.trim()) {
+          return reject("No output from analysis tool");
+        }
+        resolve(stdoutData);
       }
-      const pid = startRes.data;
+    }, 500);
+  });
+}
 
-      // poll until it exits
-      const poll = setInterval(() => {
-        const stat = window.cep.process.isRunning(pid);
-        if (stat.err !== 0) {
-          clearInterval(poll);
-          return reject(`Error polling process: ${stat.err}`);
-        }
-        if (!stat.data) {
-          clearInterval(poll);
-          // read its stderr
-          // window.cep.process.stderr(pid, stdout => {
-          // 	if (!stdout) {
-          // 		return reject("No output from analysis tool");
-          // 	}
-          // 	document.getElementById("out").textContent = stdout;
-          // 	resolve(stdout);
-          // });
-          window.cep.process.stdout(pid, stdout => {
-            if (!stdout) {
-              return reject("No output from analysis tool");
-            }
-            document.getElementById("out").textContent = stdout;
-            resolve(stdout);
-          });
-        }
-      }, 300);
-    });
-  }
   init();
-
 })
