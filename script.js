@@ -3,9 +3,103 @@
  * JavaScript functionality for the Timbre Panel interface
  */
 
-document.addEventListener("DOMContentLoaded", () => {
+function onLoaded() {
   const csInterface = new CSInterface()
+  logToPanel("Panel loaded", "info");
+  loadJSX();
 
+  csInterface.addEventListener("com.adobe.csxs.events.PProPanelRenderEvent", function (event) {
+    alert(event.data);
+  });
+
+  csInterface.addEventListener("com.adobe.csxs.events.WorkspaceChanged", function (event) {
+    alert("New workspace selected: " + event.data);
+  });
+
+  csInterface.addEventListener("com.adobe.ccx.start.handleLicenseBanner", function (event) {
+    alert("User chose to go \"Home\", wherever that is...");
+  });
+
+  csInterface.addEventListener("ApplicationBeforeQuit", function (event) {
+    csInterface.evalScript("$._PPP_.closeLog()");
+  });
+
+  csInterface.evalScript("$._PPP_.getVersionInfo()", myVersionInfoFunction);
+  csInterface.evalScript("$._PPP_.getActiveSequenceName()", myCallBackFunction);
+  csInterface.evalScript("$._PPP_.getUserName()", myUserNameFunction);
+  csInterface.evalScript("$._PPP_.getProjectProxySetting()", myGetProxyFunction);
+  csInterface.evalScript("$._PPP_.keepPanelLoaded()");
+  csInterface.evalScript("$._PPP_.disableImportWorkspaceWithProjects()");
+  csInterface.evalScript("$._PPP_.registerProjectPanelSelectionChangedFxn()");  	// Project panel selection changed
+  csInterface.evalScript("$._PPP_.registerItemAddedFxn()");					  	// Item added to project
+  csInterface.evalScript("$._PPP_.registerProjectChangedFxn()");					// Project changed
+  csInterface.evalScript("$._PPP_.registerSequenceSelectionChangedFxn()");		// Selection within the active sequence changed
+  csInterface.evalScript("$._PPP_.registerSequenceActivatedFxn()");				// The active sequence changed
+  csInterface.evalScript("$._PPP_.registerActiveSequenceStructureChangedFxn()");	// Clips within the active sequence changed
+  csInterface.evalScript("$._PPP_.registerItemsAddedToProjectFxn()");  // register for message, whenever something is added to the active project
+  csInterface.evalScript("$._PPP_.registerSequenceMessaging()");
+  csInterface.evalScript("$._PPP_.registerActiveSequenceChangedFxn()");
+  csInterface.evalScript("$._PPP_.confirmPProHostVersion()");
+  csInterface.evalScript("$._PPP_.forceLogfilesOn()");  // turn on log files when launching
+
+  // Good idea from our friends at Evolphin; make the ExtendScript locale match the JavaScript locale!
+  var prefix = "$._PPP_.setLocale('";
+  var locale = csInterface.hostEnvironment.appUILocale;
+  var postfix = "');";
+
+  var entireCallWithParams = prefix + locale + postfix;
+  csInterface.evalScript(entireCallWithParams);
+}
+
+function myCallBackFunction(data) {
+  // Updates seq_display with whatever ExtendScript function returns.
+  var boilerPlate = "Active Sequence: ";
+  var seq_display = document.getElementById("active_seq");
+  seq_display.innerHTML = boilerPlate + data;
+}
+
+function myUserNameFunction(data) {
+  // Updates username with whatever ExtendScript function returns.
+  var user_name = document.getElementById("username");
+  user_name.innerHTML = data;
+}
+
+function myGetProxyFunction(data) {
+  // Updates proxy_display based on current sequence's value.
+  var boilerPlate = "Proxies enabled for project: ";
+  var proxy_display = document.getElementById("proxies_on");
+
+  if (proxy_display !== null) {
+    proxy_display.innerHTML = boilerPlate + data;
+  }
+}
+
+function myVersionInfoFunction(data) {
+  var v_string = document.getElementById("version_string");
+  v_string.innerHTML = data;
+}
+
+/**
+* Load JSX file into the scripting context of the product. All the jsx files in 
+* folder [ExtensionRoot]/jsx & [ExtensionRoot]/jsx/[AppName] will be loaded.
+*/
+function loadJSX() {
+  var csInterface = new CSInterface();
+
+  // get the appName of the currently used app. For Premiere Pro it's "PPRO"
+  var appName = csInterface.hostEnvironment.appName;
+  var extensionPath = csInterface.getSystemPath(SystemPath.EXTENSION);
+
+  // load general JSX script independent of appName
+  var extensionRootGeneral = extensionPath + "/jsx/";
+  csInterface.evalScript("$._ext.evalFiles(\"" + extensionRootGeneral + "\")");
+
+  // load JSX scripts based on appName
+  var extensionRootApp = extensionPath + "/jsx/" + appName + "/";
+  csInterface.evalScript("$._ext.evalFiles(\"" + extensionRootApp + "\")");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
   // Update the appState to include more validation fields and track information
   const appState = {
     // Form data
@@ -61,10 +155,21 @@ document.addEventListener("DOMContentLoaded", () => {
     // Presets
     presets: [],
     currentPresetIndex: null,
+    authState: {
+      apiKey: null,
+      isAuthenticated: false,
+      lastVerified: null,
+      verificationInterval: 30 * 24 * 60 * 60 * 1000,
+      trialMode: false,
+      trialExpiry: null,
+      error: null
+    }
   }
 
   function logToPanel(message, type = "info") {
     try {
+      const csInterface = new CSInterface()
+
       // Convert objects to strings if needed
       if (typeof message === "object") {
         try {
@@ -102,6 +207,263 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (e) {
         // At this point, we can't do anything more
       }
+    }
+  }
+  const authState = appState.authState;
+  function loadApiKey() {
+    try {
+      const saved = localStorage.getItem("api");
+      if (saved) {
+        const p = JSON.parse(saved);
+        authState.apiKey = p.apiKey;
+        authState.isAuthenticated = p.isAuthenticated;
+        authState.lastVerified = p.lastVerified ? new Date(p.lastVerified) : null;
+        authState.trialMode = p.trialMode || false;
+        authState.trialExpiry = p.trialExpiry ? new Date(p.trialExpiry) : null;
+        logToPanel(`Auth state loaded from storage ${JSON.stringify(p)}`, "info");
+        return true;
+      }
+      return false;
+    } catch (err) {
+      logToPanel(`Error loading auth state: ${err}`, "error");
+      return false;
+    }
+  }
+
+  function saveApiKey() {
+    try {
+      localStorage.setItem("timbreAuth", JSON.stringify({
+        apiKey: authState.apiKey,
+        isAuthenticated: authState.isAuthenticated,
+        lastVerified: authState.lastVerified ? authState.lastVerified.toISOString() : null,
+        trialMode: authState.trialMode,
+        trialExpiry: authState.trialExpiry ? authState.trialExpiry.toISOString() : null
+      }));
+      logToPanel("Auth state saved to storage", "info");
+    } catch (err) {
+      logToPanel(`Error saving auth state: ${err}`, "error");
+    }
+  }
+
+  function clearAuthState() {
+    authState.apiKey =
+      authState.isAuthenticated =
+      authState.lastVerified =
+      authState.trialMode =
+      authState.trialExpiry =
+      authState.error = null;
+    try {
+      localStorage.removeItem("timbreAuth");
+      logToPanel("Auth state cleared", "info");
+    } catch (err) {
+      logToPanel(`Error clearing auth state: ${err}`, "error");
+    }
+  }
+
+  async function verifyApiKey(apiKey) {
+    try {
+      logToPanel(`Verifying API key: ${apiKey}`, "info");
+      const validKeys = ["DEMO-KEY-123", "PREMIUM-KEY-456", "TIMBRE-PRO-789"];
+      if (validKeys.includes(apiKey)) {
+        authState.apiKey = apiKey;
+        authState.isAuthenticated = true;
+        authState.lastVerified = new Date();
+        authState.error = null;
+        saveApiKey();
+        logToPanel("API key verified successfully", "success");
+        return true;
+      } else {
+        authState.error = "Invalid API key. Please check and try again.";
+        logToPanel(authState.error, "error");
+        return false;
+      }
+    } catch (err) {
+      authState.error = "Verification failed. Please check your connection.";
+      logToPanel(`API key verification failed: ${err}`, "error");
+      return false;
+    }
+  }
+
+  function needsVerification() {
+    if (!authState.isAuthenticated || !authState.lastVerified) return true;
+    return Date.now() - authState.lastVerified.getTime() > authState.verificationInterval;
+  }
+
+  function startTrial() {
+    authState.trialMode = true;
+    authState.trialExpiry = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    authState.isAuthenticated = true;
+    authState.lastVerified = new Date();
+    saveApiKey();
+    logToPanel("Trial started: 14 days remaining", "info");
+  }
+
+  function isTrialValid() {
+    return authState.trialMode && authState.trialExpiry && Date.now() < authState.trialExpiry.getTime();
+  }
+
+  function getTrialDaysRemaining() {
+    if (!isTrialValid()) return 0;
+    const ms = authState.trialExpiry.getTime() - Date.now();
+    return Math.ceil(ms / (24 * 60 * 60 * 1000));
+  }
+
+  function showAuthToast(message, type = "info") {
+    let container = document.getElementById("authToastContainer");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "authToastContainer";
+      container.className = "auth-toast-container";
+      document.body.appendChild(container);
+    }
+    const toast = document.createElement("div");
+    toast.className = `auth-toast ${type}`;
+    toast.innerHTML = `
+        <div class="auth-toast-content">
+            <div class="auth-toast-message">${message}</div>
+        </div>
+    `;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add("fade-out");
+      setTimeout(() => toast.remove(), 300);
+    }, 5000);
+  }
+
+  function showTrialBanner() {
+    if (!isTrialValid()) return;
+    const days = getTrialDaysRemaining();
+    let banner = document.getElementById("trialBanner");
+    if (!banner) {
+      banner = document.createElement("div");
+      banner.id = "trialBanner";
+      banner.className = "trial-banner";
+      banner.innerHTML = `
+            <div class="trial-banner-content">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>Trial: ${days} days remaining</span>
+            </div>
+            <a href="https://www.timbre-edit-tool.com/purchase" target="_blank" class="trial-banner-btn">
+                Purchase License
+            </a>
+        `;
+      document.body.insertBefore(banner, document.body.firstChild);
+    } else {
+      const span = banner.querySelector("span");
+      if (span) span.textContent = `Trial: ${days} days remaining`;
+    }
+  }
+
+  function showAuthModal() {
+    document.getElementById("authModal").style.display = "flex";
+    document.getElementById("appContent").style.display = "none";
+  }
+
+  function closeAuthModal() {
+    const mod = document.getElementById("authModal");
+    mod.classList.add("closing");
+    setTimeout(() => {
+      mod.style.display = "none";
+      mod.classList.remove("closing");
+    }, 300);
+  }
+
+  function showApp() {
+    document.getElementById("appContent").style.display = "block";
+    closeAuthModal();
+  }
+
+  function checkAuthStatus() {
+    const loaded = loadApiKey();
+    if (!loaded || !authState.isAuthenticated || needsVerification()) {
+      if (authState.trialMode && isTrialValid()) {
+        showTrialBanner();
+        showApp();
+        return true;
+      }
+      logToPanel("Api key trial", "info")
+
+      showAuthModal();
+      return false;
+    }
+    if (authState.trialMode && isTrialValid()) showTrialBanner();
+
+    showApp();
+    logToPanel("Api key verified", "info")
+    return true;
+  }
+
+  function setupAuthModalEvents() {
+    document.querySelectorAll(".auth-tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".auth-tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".auth-tab-content").forEach(c => c.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab + "-tab").classList.add("active");
+      });
+    });
+    document.getElementById("verifyKeyBtn").addEventListener("click", async () => {
+      const input = document.getElementById("apiKey");
+      const errorDiv = document.getElementById("apiKeyError");
+      const key = input.value.trim();
+      if (!key) {
+        errorDiv.textContent = "Please enter a license key";
+        input.classList.add("error");
+        return;
+      }
+      const btn = document.getElementById("verifyKeyBtn");
+      btn.disabled = true;
+      btn.innerHTML = `
+            <span class="btn-icon">
+                <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
+                             M16.24 16.24l2.83 2.83M2 12h4M18 12h4
+                             M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                </svg>
+            </span>
+            Verifying...
+        `;
+      const ok = await verifyApiKey(key);
+      btn.disabled = false;
+      btn.textContent = "Activate License";
+      if (ok) {
+        closeAuthModal();
+        showAuthToast("License activated!", "success");
+        init();
+      } else {
+        errorDiv.textContent = authState.error || "Invalid license key";
+        input.classList.add("error");
+      }
+    });
+    document.getElementById("startTrialBtn").addEventListener("click", () => {
+      startTrial();
+      closeAuthModal();
+      showAuthToast("Trial started (14 days)", "success");
+      showTrialBanner();
+      init();
+    });
+    document.getElementById("apiKey").addEventListener("focus", e => {
+      e.target.classList.remove("error");
+      document.getElementById("apiKeyError").textContent = "";
+    });
+  }
+
+  function onload() {
+    setupAuthModalEvents();
+    if (checkAuthStatus()) return;
+    const apiInput = document.getElementById("apiKey");
+    if (apiInput) {
+      apiInput.addEventListener("keydown", e => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          document.getElementById("verifyKeyBtn").click();
+        }
+      });
     }
   }
 
@@ -203,6 +565,7 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   function init() {
     logToPanel("Initializing Multi-Camera Edit Tool", "info")
+    onload()
 
     // Load theme preference
     loadThemePreference()
@@ -1340,6 +1703,7 @@ document.addEventListener("DOMContentLoaded", () => {
    * @param {Function} callback - Callback function to run after getting track info
    */
   function checkTrackInfo(callback) {
+    const csInterface = new CSInterface()
     logToPanel("Checking track info from Premiere Pro", "info")
 
     try {
@@ -1461,6 +1825,7 @@ document.addEventListener("DOMContentLoaded", () => {
    * Update the handleCreateEdit function to include track validation
    */
   async function handleCreateEdit() {
+    const csInterface = new CSInterface()
     if (appState.ui.isProcessing) {
       logToPanel("Create edit button clicked while already processing", "warning");
       return;
@@ -1854,15 +2219,64 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Initialize the application
-  init()
+  // init()
 
-  const container = document.getElementById("testxyz")
+  async function runAudioAnalysis(cliArgs) {
+    return new Promise((resolve, reject) => {
+      const cs = new CSInterface();
+      const extDir = cs.getSystemPath(SystemPath.EXTENSION);
+      const isWin = cs.getOSInformation().includes("Windows");
+      const sep = isWin ? "\\" : "/";
 
-  container.addEventListener("click", () => {
-    let csInterface = new CSInterface();
-    csInterface.evalScript(`$._PPP_.searchForBinWithName("Bin")`, (result) => {
-      document.getElementById("out").textContent = result
-    })
-    // csInterface.evalScript('$._PPP_.createSubClip()')
-  });
+      if (!Array.isArray(cliArgs) || cliArgs.length < 4) {
+        return reject("runAudioAnalysis requires at least one file+tracks and the 3 params");
+      }
+
+      const safeArgs = cliArgs.map(arg => {
+        const s = String(arg);
+        return isWin ? s.replace(/\\/g, "\\\\") : s;
+      });
+
+      // pick the binary
+      const exeName = isWin ? "audioTool-win.exe" : "audioTool-mac";
+      let exePath = extDir + sep + "audioAnalysis" + sep + exeName;
+      if (isWin) exePath = exePath.replace(/\\/g, "\\\\");
+
+      // start the process
+      const startRes = window.cep.process.createProcess(exePath, ...safeArgs);
+      if (startRes.err !== 0) {
+        return reject(`Error starting analysis process: ${startRes.err}`);
+      }
+      const pid = startRes.data;
+
+      // poll until it exits
+      const poll = setInterval(() => {
+        const stat = window.cep.process.isRunning(pid);
+        if (stat.err !== 0) {
+          clearInterval(poll);
+          return reject(`Error polling process: ${stat.err}`);
+        }
+        if (!stat.data) {
+          clearInterval(poll);
+          // read its stderr
+          // window.cep.process.stderr(pid, stdout => {
+          // 	if (!stdout) {
+          // 		return reject("No output from analysis tool");
+          // 	}
+          // 	document.getElementById("out").textContent = stdout;
+          // 	resolve(stdout);
+          // });
+          window.cep.process.stdout(pid, stdout => {
+            if (!stdout) {
+              return reject("No output from analysis tool");
+            }
+            document.getElementById("out").textContent = stdout;
+            resolve(stdout);
+          });
+        }
+      }, 300);
+    });
+  }
+  init();
+
 })

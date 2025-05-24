@@ -18,7 +18,7 @@
       <Locale Code="All" />
     </LocaleList>
     <RequiredRuntimeList>
-      <RequiredRuntime Name="CSXS" Version="9.0" />
+      <RequiredRuntime Name="CSXS" Version="11.0" />
     </RequiredRuntimeList>
   </ExecutionEnvironment>
   <DispatchInfoList>
@@ -38,11 +38,11 @@
         </Lifecycle>
         <UI>
           <Type>Panel</Type>
-          <Menu>Multi Cam Podcast Auto Edit</Menu>
+          <Menu>Timbre Plugin</Menu>
           <Geometry>
             <Size>
-              <Height>800</Height>
-              <Width>650</Width>
+              <Height>650</Height>
+              <Width>550</Width>
             </Size>
           </Geometry>
         </UI>

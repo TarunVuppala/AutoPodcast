@@ -15,14 +15,13 @@
 **************************************************************************/
 -->
 <html lang="en">
-<title>PProPanel</title>
+<title>Timbre Plugin</title>
 
 <head>
 	<meta charset="utf-8">
-	<script src="./ext.js"></script>
-	<script src="./script.js"></script>
 	<script src="./lib/CSInterface.js"></script>
-	<script src="./lib/jquery-1.9.1.js"></script>
+	<script src="https://code.jquery.com/jquery-3.6.4.min.js"
+		integrity="sha256-/xUj+3OJ+Y4cXXJz6egbJAqh97cSFAvF5Y5ua7F+c5A=" crossorigin="anonymous"></script>
 	<script src="./lib/Vulcan.js"></script>
 	<link id="ppstyle" href="css/style.css" rel="stylesheet" type="text/css">
 	<link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,11 +29,9 @@
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 	<script type="text/javascript">
 		$(document).ready(function () {
-
 			// For functions which require interaction at the JavaScript level, we provide these JQuery-based
 			// handlers, instead of directly invoking ExtendScript .This gives the JavaScript layer a chance
 			// to pass data into the ExtendScript layer, and process the results.
-
 			$("#copypresets").on("click", function (e) {
 				e.preventDefault();
 
@@ -359,39 +356,25 @@
 	</script>
 </head>
 
-<body onLoad="onLoaded()">
-	<a href="javascript:history.go(0)">Refresh panel</a>
-	<p id="username">[uninitialized]</p>
-	<p id="version_string">[uninitialized]</p>
-	<p id="active_seq">[uninitialized]</p>
-	<p id="proxies_on">Proxies enabled for sequence: </p>
-	<button id="testxyz">Test</button>
-	<p id="out" class="section-subtitle">Click test</p>
-	<!-- <button class="controlBg textStyle" id="btn_PPRO86" onClick="evalScript('$._PPP_.moveTrackItemOnTimeline()')">Move Clip 13 Seconds on Timeline</button> -->
-	<!-- <div class="file-control">
-		<button id="selectFileButton" class="btn btn-secondary">Select Audio File</button>
-		<span id="selectedFile">No file selected</span>
+<body>
+	<div class="section">
+		<a href="javascript:history.go(0)">Refresh panel</a>
+		<p id="username">[uninitialized]</p>
+		<p id="version_string">[uninitialized]</p>
+		<p id="active_seq">[uninitialized]</p>
+		<p id="proxies_on">Proxies enabled for sequence: </p>
 	</div>
-	<div>
-	<button id="analyzeButton" class="btn btn-secondary">Analyze Audio</button>
-	-->
-	<!-- <div id="authModal" class="auth-modal">
+	<!-- Authentication Modal -->
+	<div id="authModal" class="auth-modal">
 		<div class="auth-modal-overlay"></div>
 		<div class="auth-modal-content">
 			<div class="auth-modal-header">
-				<h2>Multi-Camera Edit Tool</h2>
-				<div class="auth-logo">
-					<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-						stroke-linecap="round" stroke-linejoin="round">
-						<rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-						<line x1="7" y1="2" x2="7" y2="22"></line>
-						<line x1="17" y1="2" x2="17" y2="22"></line>
-						<line x1="2" y1="12" x2="22" y2="12"></line>
-						<line x1="2" y1="7" x2="7" y2="7"></line>
-						<line x1="2" y1="17" x2="7" y2="17"></line>
-						<line x1="17" y1="17" x2="22" y2="17"></line>
-						<line x1="17" y1="7" x2="22" y2="7"></line>
-					</svg>
+				<div class="title-group">
+					<img class="panel-logo" src="assets/timbre_logo.png" alt="Timbre Logo">
+					<div>
+						<h1 class="panel-title">Timbre Multi-Camera Edit Tool</h1>
+						<div class="panel-subtitle">Professional multi-camera editing solution</div>
+					</div>
 				</div>
 			</div>
 			<div class="auth-modal-body">
@@ -401,7 +384,7 @@
 				</div>
 
 				<div class="auth-tab-content active" id="license-tab">
-					<p class="auth-description">Enter your license key to activate Multi-Camera Edit Tool.</p>
+					<p class="auth-description">Enter your license key to activate Timbre Plugin.</p>
 					<div class="auth-form">
 						<div class="auth-form-group">
 							<label for="apiKey">License Key</label>
@@ -415,7 +398,7 @@
 				</div>
 
 				<div class="auth-tab-content" id="trial-tab">
-					<p class="auth-description">Try Multi-Camera Edit Tool free for 14 days.</p>
+					<p class="auth-description">Try Timbre Plugin for free.</p>
 					<div class="auth-trial-info">
 						<ul>
 							<li>Full access to all features</li>
@@ -433,35 +416,53 @@
 						target="_blank">Purchase here</a></p>
 			</div>
 		</div>
-	</div> -->
+	</div>
 
-	<div class="container appContent">
+	<!-- Main Application Content -->
+	<div class="container" id="">
 		<div class="timbre-panel">
-			<div class="theme-toggle">
-				<button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Toggle theme">
-					<svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-						stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<circle cx="12" cy="12" r="5"></circle>
-						<line x1="12" y1="1" x2="12" y2="3"></line>
-						<line x1="12" y1="21" x2="12" y2="23"></line>
-						<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-						<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-						<line x1="1" y1="12" x2="3" y2="12"></line>
-						<line x1="21" y1="12" x2="23" y2="12"></line>
-						<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-						<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-					</svg>
-					<svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-						stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-					</svg>
-				</button>
-			</div>
-
-			<header class="panel-header">
-				<h1 class="panel-title">Multi-Camera Edit Tool</h1>
-				<div class="panel-subtitle">Configure your automated edit settings</div>
-			</header>
+			<!-- Header Section -->
+			<section class="top-section">
+				<header class="panel-header">
+					<div class="title-group">
+						<div>
+							<img class="panel-logo" src="assets/timbre_logo.png" alt="Timbre Logo">
+						</div>
+						<div>
+							<h1 class="panel-title">Timbre Multi-Camera Edit Tool</h1>
+							<p class="panel-subtitle">Configure your automated edit settings</p>
+						</div>
+					</div>
+					<div class="icons">
+						<button id="reloadBtn" class="reload-btn" title="Reload tracks">
+							<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+								fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+								stroke-linejoin="round">
+								<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+								<path d="M21 3v5h-5" />
+							</svg>
+						</button>
+						<button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Toggle theme">
+							<svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+								stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<circle cx="12" cy="12" r="5"></circle>
+								<line x1="12" y1="1" x2="12" y2="3"></line>
+								<line x1="12" y1="21" x2="12" y2="23"></line>
+								<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+								<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+								<line x1="1" y1="12" x2="3" y2="12"></line>
+								<line x1="21" y1="12" x2="23" y2="12"></line>
+								<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+								<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+							</svg>
+							<svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+								stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+							</svg>
+						</button>
+					</div>
+				</header>
+			</section>
 
 			<!-- Global Error Display -->
 			<div id="globalErrorContainer" class="global-error-container" style="display: none"></div>
@@ -482,7 +483,7 @@
 						<div class="select-icon"></div>
 					</div>
 					<div class="button-group">
-						<button id="presetNewBtn" class="btn btn-secondary">
+						<button id="presetNewBtn" class="btn btn-primary">
 							<span class="btn-icon">
 								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
 									stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -673,7 +674,7 @@
 			<!-- Action Buttons -->
 			<section class="action-section">
 				<button id="resetFormBtn" class="btn btn-secondary">Reset Form</button>
-				<button id="createEditBtn" class="btn btn-primary">
+				<button id="createEditBtn" class="btn btn-primary btn-large">
 					<span class="btn-icon">
 						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
 							stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -723,433 +724,12 @@
 		</div>
 	</div>
 </body>
+
 <script>
-	// const authState = {
-	// 	apiKey: null,
-	// 	isAuthenticated: false,
-	// 	lastVerified: null,
-	// 	verificationInterval: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
-	// 	trialMode: false,
-	// 	trialExpiry: null,
-	// 	error: null,
-	// };
 
-	// // Load API key from localStorage
-	// function loadApiKey() {
-	// 	try {
-	// 		const savedAuth = localStorage.getItem("timbreAuth");
-	// 		if (savedAuth) {
-	// 			const parsedAuth = JSON.parse(savedAuth);
-	// 			authState.apiKey = parsedAuth.apiKey;
-	// 			authState.isAuthenticated = parsedAuth.isAuthenticated;
-	// 			authState.lastVerified = parsedAuth.lastVerified ? new Date(parsedAuth.lastVerified) : null;
-	// 			authState.trialMode = parsedAuth.trialMode || false;
-	// 			authState.trialExpiry = parsedAuth.trialExpiry ? new Date(parsedAuth.trialExpiry) : null;
-
-	// 			console.log("Auth state loaded from storage");
-	// 			return true;
-	// 		}
-	// 		return false;
-	// 	} catch (error) {
-	// 		console.error("Error loading auth state:", error);
-	// 		return false;
-	// 	}
-	// }
-
-	// // Save API key to localStorage
-	// function saveApiKey() {
-	// 	try {
-	// 		localStorage.setItem(
-	// 			"timbreAuth",
-	// 			JSON.stringify({
-	// 				apiKey: authState.apiKey,
-	// 				isAuthenticated: authState.isAuthenticated,
-	// 				lastVerified: authState.lastVerified ? authState.lastVerified.toISOString() : null,
-	// 				trialMode: authState.trialMode,
-	// 				trialExpiry: authState.trialExpiry ? authState.trialExpiry.toISOString() : null,
-	// 			})
-	// 		);
-	// 		console.log("Auth state saved to storage");
-	// 	} catch (error) {
-	// 		console.error("Error saving auth state:", error);
-	// 	}
-	// }
-
-	// // Clear authentication state
-	// function clearAuthState() {
-	// 	authState.apiKey = null;
-	// 	authState.isAuthenticated = false;
-	// 	authState.lastVerified = null;
-	// 	authState.trialMode = false;
-	// 	authState.trialExpiry = null;
-	// 	authState.error = null;
-
-	// 	try {
-	// 		localStorage.removeItem("timbreAuth");
-	// 		console.log("Auth state cleared");
-	// 	} catch (error) {
-	// 		console.error("Error clearing auth state:", error);
-	// 	}
-	// }
-
-	// // Verify API key with server
-	// async function verifyApiKey(apiKey) {
-	// 	try {
-	// 		// In a real implementation, this would make an actual API call to your server
-	// 		// For now, we'll simulate a verification process
-	// 		console.log("Verifying API key:", apiKey);
-
-	// 		// Simulate API call with a delay
-	// 		await new Promise((resolve) => setTimeout(resolve, 1500));
-
-	// 		// For demo purposes, consider these as valid keys
-	// 		const validKeys = ["DEMO-KEY-123", "PREMIUM-KEY-456", "TIMBRE-PRO-789"];
-
-	// 		if (validKeys.includes(apiKey)) {
-	// 			authState.apiKey = apiKey;
-	// 			authState.isAuthenticated = true;
-	// 			authState.lastVerified = new Date();
-	// 			authState.error = null;
-	// 			saveApiKey();
-	// 			return true;
-	// 		} else {
-	// 			authState.error = "Invalid API key. Please check and try again.";
-	// 			return false;
-	// 		}
-	// 	} catch (error) {
-	// 		console.error("API key verification failed:", error);
-	// 		authState.error = "Verification failed. Please check your internet connection and try again.";
-	// 		return false;
-	// 	}
-	// }
-
-	// // Check if verification is needed (on startup or monthly)
-	// function needsVerification() {
-	// 	if (!authState.isAuthenticated || !authState.lastVerified) {
-	// 		return true;
-	// 	}
-
-	// 	const now = new Date();
-	// 	const timeSinceLastVerification = now.getTime() - authState.lastVerified.getTime();
-
-	// 	return timeSinceLastVerification > authState.verificationInterval;
-	// }
-
-	// // Start trial mode
-	// function startTrial() {
-	// 	const trialDuration = 14 * 24 * 60 * 60 * 1000; // 14 days in milliseconds
-	// 	const now = new Date();
-
-	// 	authState.trialMode = true;
-	// 	authState.trialExpiry = new Date(now.getTime() + trialDuration);
-	// 	authState.isAuthenticated = true;
-	// 	authState.lastVerified = now;
-
-	// 	saveApiKey();
-	// }
-
-	// // Check if trial is valid
-	// function isTrialValid() {
-	// 	if (!authState.trialMode || !authState.trialExpiry) {
-	// 		return false;
-	// 	}
-
-	// 	const now = new Date();
-	// 	return now < authState.trialExpiry;
-	// }
-
-	// // Get days remaining in trial
-	// function getTrialDaysRemaining() {
-	// 	if (!authState.trialMode || !authState.trialExpiry) {
-	// 		return 0;
-	// 	}
-
-	// 	const now = new Date();
-	// 	const timeRemaining = authState.trialExpiry.getTime() - now.getTime();
-
-	// 	if (timeRemaining <= 0) {
-	// 		return 0;
-	// 	}
-
-	// 	return Math.ceil(timeRemaining / (24 * 60 * 60 * 1000));
-	// }
-
-	// // Show a toast notification for auth events
-	// function showAuthToast(message, type = "info") {
-	// 	// Create toast container if it doesn't exist
-	// 	let toastContainer = document.getElementById("authToastContainer");
-	// 	if (!toastContainer) {
-	// 		toastContainer = document.createElement("div");
-	// 		toastContainer.id = "authToastContainer";
-	// 		toastContainer.className = "auth-toast-container";
-	// 		document.body.appendChild(toastContainer);
-	// 	}
-
-	// 	// Create toast element
-	// 	const toast = document.createElement("div");
-	// 	toast.className = `auth-toast ${type}`;
-
-	// 	// Add icon based on type
-	// 	let iconSvg = "";
-	// 	switch (type) {
-	// 		case "success":
-	// 			iconSvg =
-	// 				'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
-	// 			break;
-	// 		case "error":
-	// 			iconSvg =
-	// 				'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
-	// 			break;
-	// 		case "warning":
-	// 			iconSvg =
-	// 				'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
-	// 			break;
-	// 		default: // info
-	// 			iconSvg =
-	// 				'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
-	// 	}
-
-	// 	// Create toast content
-	// 	toast.innerHTML = `
-	// 			<div class="auth-toast-icon">${iconSvg}</div>
-	// 			<div class="auth-toast-content">
-	// 				<div class="auth-toast-message">${message}</div>
-	// 			</div>
-	// 		`;
-
-	// 	// Add to container
-	// 	toastContainer.appendChild(toast);
-
-	// 	// Remove after animation completes
-	// 	setTimeout(() => {
-	// 		toast.classList.add("fade-out");
-	// 		setTimeout(() => {
-	// 			toast.remove();
-	// 		}, 300);
-	// 	}, 5000);
-	// }
-
-	// // Show the trial expiry banner if in trial mode
-	// function showTrialBanner() {
-	// 	const daysRemaining = getTrialDaysRemaining();
-
-	// 	// Create banner if it doesn't exist
-	// 	let trialBanner = document.getElementById("trialBanner");
-	// 	if (!trialBanner) {
-	// 		trialBanner = document.createElement("div");
-	// 		trialBanner.id = "trialBanner";
-	// 		trialBanner.className = "trial-banner";
-
-	// 		// Add banner content
-	// 		trialBanner.innerHTML = `
-	// 				<div class="trial-banner-content">
-	// 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	// 						<circle cx="12" cy="12" r="10"></circle>
-	// 						<line x1="12" y1="8" x2="12" y2="12"></line>
-	// 						<line x1="12" y1="16" x2="12.01" y2="16"></line>
-	// 					</svg>
-	// 					<span>Trial version: ${daysRemaining} days remaining</span>
-	// 				</div>
-	// 				<a href="https://www.timbre-edit-tool.com/purchase" target="_blank" class="trial-banner-btn">Purchase License</a>
-	// 			`;
-
-	// 		// Insert at the top of the body
-	// 		document.body.insertBefore(trialBanner, document.body.firstChild);
-	// 	} else {
-	// 		// Update existing banner
-	// 		const daysSpan = trialBanner.querySelector("span");
-	// 		if (daysSpan) {
-	// 			daysSpan.textContent = `Trial version: ${daysRemaining} days remaining`;
-	// 		}
-	// 	}
-	// }
-
-	// // Check authentication status and show modal if needed
-	// function checkAuthStatus() {
-	// 	const loaded = loadApiKey();
-
-	// 	if (!loaded || !authState.isAuthenticated || needsVerification()) {
-	// 		// If in trial mode, check if trial is still valid
-	// 		if (authState.trialMode && isTrialValid()) {
-	// 			showTrialBanner();
-	// 			showApp();
-	// 			return true;
-	// 		}
-
-	// 		// Show auth modal
-	// 		showAuthModal();
-	// 		return false;
-	// 	}
-
-	// 	// If authenticated but in trial mode, show trial banner
-	// 	if (authState.trialMode && isTrialValid()) {
-	// 		showTrialBanner();
-	// 	}
-
-	// 	showApp();
-	// 	return true;
-	// }
-
-	// // Show the auth modal
-	// function showAuthModal() {
-	// 	const authModal = document.getElementById("authModal");
-	// 	if (authModal) {
-	// 		authModal.style.display = "flex";
-	// 	}
-
-	// 	// Hide the app content
-	// 	const appContent = document.getElementById("appContent");
-	// 	if (appContent) {
-	// 		appContent.style.display = "none";
-	// 	}
-	// }
-
-	// // Close the auth modal
-	// function closeAuthModal() {
-	// 	const authModal = document.getElementById("authModal");
-	// 	if (authModal) {
-	// 		authModal.classList.add("closing");
-	// 		setTimeout(() => {
-	// 			authModal.style.display = "none";
-	// 			authModal.classList.remove("closing");
-	// 		}, 300);
-	// 	}
-	// }
-
-	// // Show the main app
-	// function showApp() {
-	// 	const appContent = document.getElementById("appContent");
-	// 	if (appContent) {
-	// 		appContent.style.display = "block";
-	// 	}
-
-	// 	closeAuthModal();
-	// }
-
-	// // Set up event listeners for the auth modal
-	// function setupAuthModalEvents() {
-	// 	// Tab switching
-	// 	document.querySelectorAll(".auth-tab-btn").forEach((btn) => {
-	// 		btn.addEventListener("click", () => {
-	// 			// Remove active class from all tabs and contents
-	// 			document.querySelectorAll(".auth-tab-btn").forEach((b) => b.classList.remove("active"));
-	// 			document.querySelectorAll(".auth-tab-content").forEach((c) => c.classList.remove("active"));
-
-	// 			// Add active class to clicked tab and corresponding content
-	// 			btn.classList.add("active");
-	// 			const tabId = btn.getAttribute("data-tab") + "-tab";
-	// 			document.getElementById(tabId).classList.add("active");
-	// 		});
-	// 	});
-
-	// 	// Verify key button
-	// 	const verifyKeyBtn = document.getElementById("verifyKeyBtn");
-	// 	if (verifyKeyBtn) {
-	// 		verifyKeyBtn.addEventListener("click", async () => {
-	// 			const apiKeyInput = document.getElementById("apiKey");
-	// 			const apiKeyError = document.getElementById("apiKeyError");
-	// 			const apiKey = apiKeyInput.value.trim();
-
-	// 			if (!apiKey) {
-	// 				apiKeyError.textContent = "Please enter a license key";
-	// 				apiKeyInput.classList.add("error");
-	// 				return;
-	// 			}
-
-	// 			// Show loading state
-	// 			verifyKeyBtn.disabled = true;
-	// 			verifyKeyBtn.innerHTML = `
-	// 					<svg class="auth-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-	// 						<circle cx="12" cy="12" r="10"></circle>
-	// 						<path d="M12 6v6l4 2"></path>
-	// 					</svg>
-	// 					Verifying...
-	// 				`;
-
-	// 			// Verify the API key
-	// 			const isValid = await verifyApiKey(apiKey);
-
-	// 			// Reset button state
-	// 			verifyKeyBtn.disabled = false;
-	// 			verifyKeyBtn.textContent = "Activate License";
-
-	// 			if (isValid) {
-	// 				// Close the modal and show success message
-	// 				closeAuthModal();
-	// 				showAuthToast("License activated successfully!", "success");
-
-	// 				// Show the app
-	// 				showApp();
-
-	// 				// Initialize the app
-	// 				initApp();
-	// 			} else {
-	// 				// Show error message
-	// 				apiKeyError.textContent = authState.error || "Invalid license key";
-	// 				apiKeyInput.classList.add("error");
-	// 			}
-	// 		});
-	// 	}
-
-	// 	// Start trial button
-	// 	const startTrialBtn = document.getElementById("startTrialBtn");
-	// 	if (startTrialBtn) {
-	// 		startTrialBtn.addEventListener("click", () => {
-	// 			// Start the trial
-	// 			startTrial();
-
-	// 			// Close the modal and show success message
-	// 			closeAuthModal();
-	// 			showAuthToast("14-day trial started successfully!", "success");
-
-	// 			// Show the app
-	// 			showApp();
-
-	// 			// Show trial banner
-	// 			showTrialBanner();
-
-	// 			// Initialize the app
-	// 			initApp();
-	// 		});
-	// 	}
-
-	// 	// Input focus/blur events
-	// 	const apiKeyInput = document.getElementById("apiKey");
-	// 	if (apiKeyInput) {
-	// 		apiKeyInput.addEventListener("focus", () => {
-	// 			apiKeyInput.classList.remove("error");
-	// 			document.getElementById("apiKeyError").textContent = "";
-	// 		});
-	// 	}
-
-	// 	// License button
-	// 	const licenseBtn = document.getElementById("licenseBtn");
-	// 	if (licenseBtn) {
-	// 		licenseBtn.addEventListener("click", () => {
-	// 			showAuthModal();
-	// 		});
-	// 	}
-	// }
-
-	// // Initialize the application
-	// function onLoaded() {
-	// 	// Set up auth modal events
-	// 	setupAuthModalEvents();
-
-	// 	// Check authentication status
-	// 	checkAuthStatus();
-	// }
-
-	// // Initialize the app after authentication
-	// function initApp() {
-	// 	// Load your script.js here or call your initialization function
-	// 	if (typeof window.initTimbreApp === 'function') {
-	// 		window.initTimbreApp();
-	// 	} else {
-	// 		// If script.js is loaded separately, it will initialize on its own
-	// 		console.log("App initialized");
-	// 	}
-	// }
+	window.addEventListener('load', () => {
+		onLoaded();
+	});
 	document.body.onbeforeunload = function () {
 		var csInterface = new CSInterface();
 		var OSVersion = csInterface.getOSInformation();
@@ -1160,7 +740,7 @@
 
 		if (versionAsFloat < 10.3) {
 			var
-			path = "file:///Library/Application Support/Adobe/CEP/extensions/PProPanel/payloads/onbeforeunload.html"; if
+				path = "file:///Library/Application Support/Adobe/CEP/extensions/PProPanel/payloads/onbeforeunload.html"; if
 				(OSVersion.indexOf("Windows") >= 0) {
 				path =
 					"file:///C:/Program%20Files%20(x86)/Common%20Files/Adobe/CEP/extensions/PProPanel/payloads/onbeforeunload.html"
@@ -1169,5 +749,6 @@
 		}
 	};
 </script>
+<script src="./script.js"></script>
 
 </html>

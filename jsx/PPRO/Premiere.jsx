@@ -2993,6 +2993,7 @@ $._PPP_ = {
 			return false;
 		}
 	},
+
 	getAudioTrackClipItemsPath: function () {
 		try {
 			var seq = app.project.activeSequence;
@@ -3007,28 +3008,24 @@ $._PPP_ = {
 				var clips = audioTracks[i].clips;
 
 				if (clips.numItems > 1) {
-					throw "Error: Multiple clips " + (i + 1);
+					clipPaths.push("Error: Multiple clips " + (i + 1));
 				}
 				else if (clips.numItems === 0) {
-					// no clip → push an empty string (or null) if you need a placeholder
 					clipPaths.push("");
 				}
 				else {
-					// exactly one clip
 					clipPaths.push(clips[0].projectItem.getMediaPath());
 				}
 			}
 
-			// success: return array of paths
 			return clipPaths;
 		}
 		catch (e) {
-			// log into your panel’s event area
 			$._PPP_.updateEventPanel(e.toString());
-			// on error, return an empty array (or you could return e.toString())
 			return [];
 		}
 	},
+	
 	getVideoTracks: function () {
 		try {
 			var seq = app.project.activeSequence;
@@ -3041,23 +3038,19 @@ $._PPP_ = {
 			for (var i = 0; i < videoTracks.numTracks; i++) {
 				var clips = videoTracks[i].clips;
 				if (clips.numItems > 1) {
-					throw "Error: Multiple clips " + (i + 1);
+					videoTrackItems.push("Error: Multiple clips " + (i + 1));
 				}
 				else if (clips.numItems === 0) {
-					// no clip → push an empty string (or null) if you need a placeholder
 					videoTrackItems.push("");
 				}
 				else {
-					// exactly one clip
 					videoTrackItems.push(clips[0].projectItem.getMediaPath());
 				}
 			}
 
 			return videoTrackItems;
 		} catch (e) {
-			// log into your panel’s event area
 			$._PPP_.updateEventPanel(e.toString());
-			// on error, return an empty array (or you could return e.toString())
 			return [];
 		}
 	},
@@ -3068,19 +3061,17 @@ $._PPP_ = {
 	},
 
 	processTimeline: function (tl) {
-		// var FADE_DURATION = 0.2;
 		try {
 			if (!tl || tl.length === 0) {
 				throw new Error("No timeline provided.");
 			}
-			this.updateEventPanel("Starting timeline processing…");
+			$._PPP_.updateEventPanel("Starting timeline processing...");
 			var seq = app.project.activeSequence;
 			if (!seq) {
-				this.updateEventPanel("No active sequence!");
+				$._PPP_.updateEventPanel("No active sequence!");
 				return;
 			}
 
-			//determine which tracks are used and grab their source ProjectItem
 			var usedV = {}, usedA = {}, projItems = {};
 			for (var i = 0; i < tl.length; i++) {
 				var e = tl[i];
@@ -3092,11 +3083,10 @@ $._PPP_ = {
 				if (track.clips.numItems > 0) {
 					projItems[vt] = track.clips[0].projectItem;
 				} else {
-					this.updateEventPanel("Warning: video track " + vt + " has no source clip!");
+					$._PPP_.updateEventPanel("Warning: video track " + vt + " has no source clip!");
 				}
 			}
 
-			//clear all clips on each used track (video and audio)
 			for (var vt in usedV) {
 				var track = seq.videoTracks[Number(vt) - 1];
 				while (track.clips.numItems) {
@@ -3109,36 +3099,30 @@ $._PPP_ = {
 					track.clips[0].remove(true, true);
 				}
 			}
-			this.saveProject();
+			$._PPP_.saveProject();
 
-			// Insert timeline entries
 			for (var idx = 0; idx < tl.length; idx++) {
 				var e = tl[idx];
 				var vTrack = seq.videoTracks[e.videoTrack - 1];
 				var aTrack = seq.audioTracks[e.audioTrack - 1];
 				var projItem = projItems[e.videoTrack];
 				if (!projItem) {
-					this.updateEventPanel("Skipping entry " + idx + ": no source item for track " + e.videoTrack);
+					$._PPP_.updateEventPanel("Skipping entry " + idx + ": no source item for track " + e.videoTrack);
 					continue;
 				}
 
-				// Build time objects
 				var inTime = new Time(); inTime.seconds = e.start;
 				var outTime = new Time(); outTime.seconds = e.end;
 				var name = e.type + "_" + (idx + 1)
 					+ "_" + e.start.toFixed(2)
 					+ "-" + e.end.toFixed(2);
 
-				// Create a subclip
 				var subItem = projItem.createSubClip(name, inTime, outTime, 1);
 
-				// Insert subclip at absolute start
 				seq.insertClip(subItem, inTime, e.videoTrack - 1, e.audioTrack - 1);
 
-				// Get the newly inserted clip on the video track
 				var clip = vTrack.clips[vTrack.clips.numItems - 1];
 
-				// transitions for fadeIn/fadeOut
 				// if (e.type === "fadeOut") {
 				// 	clip.addVideoTransition("Cross Dissolve", FADE_DURATION);
 				// 	clip.addAudioTransition("Constant Power", FADE_DURATION);
@@ -3149,16 +3133,16 @@ $._PPP_ = {
 				// }
 				// type==="keep": no transition
 
-				this.updateEventPanel(
+				$._PPP_.updateEventPanel(
 					"Inserted " + name + " (" + e.type + ") at " + e.start.toFixed(2) + "s"
 				);
 			}
 
-			this.saveProject();
-			this.updateEventPanel("Timeline processing complete: " + tl.length + " entries applied");
+			$._PPP_.saveProject();
+			$._PPP_.updateEventPanel("Timeline processing complete: " + tl.length + " entries applied");
 		}
 		catch (err) {
-			this.updateEventPanel("Error in processTimeline: " + err.toString());
+			$._PPP_.updateEventPanel("Error in processTimeline: " + err.toString());
 		}
 	},
 
