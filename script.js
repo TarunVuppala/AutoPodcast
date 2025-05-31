@@ -5,7 +5,6 @@
 
 function onLoaded() {
   const csInterface = new CSInterface()
-  logToPanel("Panel loaded", "info");
   loadJSX();
 
   csInterface.addEventListener("com.adobe.csxs.events.PProPanelRenderEvent", function (event) {
@@ -100,50 +99,52 @@ function loadJSX() {
 }
 
 function logToPanel(message, type = "info") {
-    try {
-      const csInterface = new CSInterface()
-
-      // Convert objects to strings if needed
-      if (typeof message === "object") {
-        try {
-          message = JSON.stringify(message)
-        } catch (e) {
-          message = "[Object cannot be stringified]"
-        }
-      }
-
-      // Escape single quotes to prevent JavaScript errors
-      const escapedMessage = message.toString().replace(/'/g, "\\'")
-
-      let formattedMessage
-      switch (type) {
-        case "error":
-          formattedMessage = `ERROR: ${escapedMessage}`
-          break
-        case "warning":
-          formattedMessage = `WARNING: ${escapedMessage}`
-          break
-        default:
-          formattedMessage = escapedMessage
-      }
-
-      csInterface.evalScript(`$._PPP_.updateEventPanel('${formattedMessage}')`)
-    } catch (error) {
-      // If this fails, we have no way to log the error
-      // We could try to display it in the UI as a last resort
+  var csInterface = new CSInterface();
+  try {
+    // Convert objects to strings if needed
+    if (typeof message === "object") {
       try {
-        const errorContainer = document.getElementById("globalErrorContainer")
-        if (errorContainer) {
-          errorContainer.textContent = `Logging error: ${error.message}`
-          errorContainer.style.display = "block"
-        }
+        message = JSON.stringify(message)
       } catch (e) {
-        // At this point, we can't do anything more
+        message = "[Object cannot be stringified]"
       }
     }
+
+    // Escape single quotes to prevent JavaScript errors
+    const escapedMessage = message.toString().replace(/'/g, "\\'")
+
+    let formattedMessage
+    switch (type) {
+      case "error":
+        formattedMessage = `ERROR: ${escapedMessage}`
+        break
+      case "warning":
+        formattedMessage = `WARNING: ${escapedMessage}`
+        break
+      default:
+        formattedMessage = escapedMessage
+    }
+
+    csInterface.evalScript(`$._PPP_.updateEventPanel('${formattedMessage}')`)
+  } catch (error) {
+    // If this fails, we have no way to log the error
+    // We could try to display it in the UI as a last resort
+    try {
+      const errorContainer = document.getElementById("globalErrorContainer")
+      if (errorContainer) {
+        errorContainer.textContent = `Logging error: ${error.message}`
+        errorContainer.style.display = "block"
+      }
+    } catch (e) {
+      // At this point, we can't do anything more
+    }
   }
+}
+
 
 document.addEventListener("DOMContentLoaded", () => {
+  const csInterface = new CSInterface();
+
   // Update the appState to include more validation fields and track information
   const appState = {
     // Form data
@@ -201,26 +202,51 @@ document.addEventListener("DOMContentLoaded", () => {
     currentPresetIndex: null,
     authState: {
       apiKey: null,
+      email: null,
       isAuthenticated: false,
       lastVerified: null,
       verificationInterval: 30 * 24 * 60 * 60 * 1000,
       trialMode: false,
       trialExpiry: null,
-      error: null
+      error: null,
+      deviceId: null,
+      userId: null,
     }
   }
 
+  function getDeviceId() {
+    const KEY = 'device-id';
+    let id = localStorage.getItem(KEY);
+
+    if (!id) {
+      id = crypto.randomUUID ? crypto.randomUUID()
+        : v4Fallback();
+      localStorage.setItem(KEY, id);
+    }
+    return id;
+  }
+
+  function v4Fallback() {
+    return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+  }
+
   const authState = appState.authState;
+  authState.deviceId = getDeviceId();
+
   function loadApiKey() {
     try {
-      const saved = localStorage.getItem("timbreAuth");
+      const saved = localStorage.getItem("timbreLicense");
       if (saved) {
         const p = JSON.parse(saved);
         authState.apiKey = p.apiKey;
+        authState.email = p.email;
         authState.isAuthenticated = p.isAuthenticated;
         authState.lastVerified = p.lastVerified ? new Date(p.lastVerified) : null;
         authState.trialMode = p.trialMode || false;
         authState.trialExpiry = p.trialExpiry ? new Date(p.trialExpiry) : null;
+        authState.userId = p.userId || null;
         logToPanel(`Auth state loaded from storage ${JSON.stringify(p)}`, "info");
         return true;
       }
@@ -233,12 +259,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function saveApiKey() {
     try {
-      localStorage.setItem("timbreAuth", JSON.stringify({
+      localStorage.setItem("timbreLicense", JSON.stringify({
         apiKey: authState.apiKey,
+        email: authState.email,
         isAuthenticated: authState.isAuthenticated,
         lastVerified: authState.lastVerified ? authState.lastVerified.toISOString() : null,
         trialMode: authState.trialMode,
-        trialExpiry: authState.trialExpiry ? authState.trialExpiry.toISOString() : null
+        trialExpiry: authState.trialExpiry ? authState.trialExpiry.toISOString() : null,
+        userId: authState.userId
       }));
       logToPanel("Auth state saved to storage", "info");
     } catch (err) {
@@ -248,39 +276,53 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function clearAuthState() {
     authState.apiKey =
+      authState.email =
+      authState.userId =
       authState.isAuthenticated =
       authState.lastVerified =
       authState.trialMode =
       authState.trialExpiry =
       authState.error = null;
     try {
-      localStorage.removeItem("timbreAuth");
+      localStorage.removeItem("timbreLicense");
       logToPanel("Auth state cleared", "info");
     } catch (err) {
       logToPanel(`Error clearing auth state: ${err}`, "error");
     }
   }
 
-  async function verifyApiKey(apiKey) {
+  async function verifyApiKey(email, key) {
     try {
-      logToPanel(`Verifying API key: ${apiKey}`, "info");
-      const validKeys = ["DEMO-KEY-123", "PREMIUM-KEY-456", "TIMBRE-PRO-789"];
-      if (validKeys.includes(apiKey)) {
-        authState.apiKey = apiKey;
+      logToPanel(`Verifying license... key: ${key}, email: ${email}, deviceId: ${authState.deviceId}`, "info");
+      const resp = await fetch("https://api.timbrehq.com/api/v1/pro/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, key, deviceId: authState.deviceId }),
+      });
+
+      logToPanel(`Response: ${resp.status} ${resp.statusText}`, "info");
+
+      const json = await resp.json();
+      logToPanel(`Response JSON: ${json}`, "info");
+
+      if (resp.ok && json.userVerified) {
+        authState.apiKey = key;
+        authState.userId = json.userId;
         authState.isAuthenticated = true;
         authState.lastVerified = new Date();
         authState.error = null;
+        authState.email = email;
         saveApiKey();
-        logToPanel("API key verified successfully", "success");
+        logToPanel("License verified", "success");
         return true;
       } else {
-        authState.error = "Invalid API key. Please check and try again.";
+        authState.error = (json.error && json.error.message) || `License rejected (${resp.status})`;
         logToPanel(authState.error, "error");
         return false;
       }
     } catch (err) {
-      authState.error = "Verification failed. Please check your connection.";
-      logToPanel(`API key verification failed: ${err}`, "error");
+      authState.error = err.message;
+      logToPanel(`Verification error: ${err}`, "error");
       return false;
     }
   }
@@ -307,28 +349,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isTrialValid()) return 0;
     const ms = authState.trialExpiry.getTime() - Date.now();
     return Math.ceil(ms / (24 * 60 * 60 * 1000));
-  }
-
-  function showAuthToast(message, type = "info") {
-    let container = document.getElementById("authToastContainer");
-    if (!container) {
-      container = document.createElement("div");
-      container.id = "authToastContainer";
-      container.className = "auth-toast-container";
-      document.body.appendChild(container);
-    }
-    const toast = document.createElement("div");
-    toast.className = `auth-toast ${type}`;
-    toast.innerHTML = `
-        <div class="auth-toast-content">
-            <div class="auth-toast-message">${message}</div>
-        </div>
-    `;
-    container.appendChild(toast);
-    setTimeout(() => {
-      toast.classList.add("fade-out");
-      setTimeout(() => toast.remove(), 300);
-    }, 5000);
   }
 
   function showTrialBanner() {
@@ -407,15 +427,26 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById(btn.dataset.tab + "-tab").classList.add("active");
       });
     });
+
     document.getElementById("verifyKeyBtn").addEventListener("click", async () => {
-      const input = document.getElementById("apiKey");
-      const errorDiv = document.getElementById("apiKeyError");
-      const key = input.value.trim();
+      const apiInput = document.getElementById("apiKey");
+      const emailInput = document.getElementById("emailId");
+      const authError = document.getElementById("authError");
+      const key = apiInput.value.trim();
+      const email = emailInput.value.trim();
+
       if (!key) {
-        errorDiv.textContent = "Please enter a license key";
-        input.classList.add("error");
+        apiErrorDiv.textContent = "Please enter a license key";
+        apiInput.classList.add("error");
         return;
       }
+
+      if (!email) {
+        emailErrorDiv.textContent = "Please enter a license key";
+        emailInput.classList.add("error");
+        return;
+      }
+
       const btn = document.getElementById("verifyKeyBtn");
       btn.disabled = true;
       btn.innerHTML = `
@@ -429,46 +460,56 @@ document.addEventListener("DOMContentLoaded", () => {
             </span>
             Verifying...
         `;
-      const ok = await verifyApiKey(key);
+      const ok = await verifyApiKey(email, key);
       btn.disabled = false;
       btn.textContent = "Activate License";
+
       if (ok) {
         closeAuthModal();
-        showAuthToast("License activated!", "success");
-        init();
+        showToast("License activated!", "success");
+        showApp();
+        return;
       } else {
-        errorDiv.textContent = authState.error || "Invalid license key";
-        input.classList.add("error");
+        authError.textContent = authState.error || "Invalid license key";
+        return;
       }
     });
+
     document.getElementById("startTrialBtn").addEventListener("click", () => {
       startTrial();
       closeAuthModal();
-      showAuthToast("Trial started (14 days)", "success");
+      showApp();
+      showToast("Trial started (14 days)", "success");
       showTrialBanner();
-      init();
+      return;
     });
+
     document.getElementById("apiKey").addEventListener("focus", e => {
       e.target.classList.remove("error");
       document.getElementById("apiKeyError").textContent = "";
     });
   }
 
-  function onload() {
+  function authSetup() {
     setupAuthModalEvents();
     if (checkAuthStatus()) {
       showApp();
       return;
     }
-    const apiInput = document.getElementById("apiKey");
-    if (apiInput) {
-      apiInput.addEventListener("keydown", e => {
+    ["apiKey", "emailId"].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("keydown", e => {
         if (e.key === "Enter") {
           e.preventDefault();
           document.getElementById("verifyKeyBtn").click();
         }
       });
-    }
+      el.addEventListener("focus", () => {
+        document.getElementById(id + "Error").textContent = "";
+        el.classList.remove("error");
+      });
+    });
   }
 
   // Load presets from localStorage
@@ -569,11 +610,15 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   function init() {
     logToPanel("Initializing Multi-Camera Edit Tool", "info")
-    onload()
+    authSetup();
+    updateThemeUI()
+    if (!appState.authState.isAuthenticated) {
+      logToPanel("Not verified", "info")
+      return
+    }
 
     // Load theme preference
     loadThemePreference()
-    updateThemeUI()
 
     // Load presets from storage
     loadPresetsFromStorage()
@@ -619,8 +664,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Check track info from Premiere Pro first
     logToPanel("Requesting track information from Premiere Pro...", "info")
     checkTrackInfo((trackInfo) => {
-      logToPanel(`Track info loaded: ${JSON.stringify(trackInfo)}`, "info")
-
       // Enable the create edit button now that tracks are loaded
       if (elements.createEditBtn) {
         elements.createEditBtn.disabled = false
@@ -1708,7 +1751,6 @@ document.addEventListener("DOMContentLoaded", () => {
    * @param {Function} callback - Callback function to run after getting track info
    */
   function checkTrackInfo(callback) {
-    const csInterface = new CSInterface()
     logToPanel("Checking track info from Premiere Pro", "info")
 
     try {
@@ -1750,8 +1792,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return 1 // One clip
           })
 
-          logToPanel(`Audio track statuses: ${JSON.stringify(appState.trackInfo.audioTrackStatus)}`, "info")
-
           // Now get video tracks
           csInterface.evalScript("$._PPP_.getVideoTracks()", (videoResult) => {
             try {
@@ -1776,8 +1816,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (path.includes("Error: Multiple clips")) return 2 // Multiple clips
                 return 1 // One clip
               })
-
-              logToPanel(`Video track statuses: ${JSON.stringify(appState.trackInfo.videoTrackStatus)}`, "info")
 
               // Check if audio and video track counts match
               appState.trackInfo.tracksMatch =
@@ -1830,7 +1868,6 @@ document.addEventListener("DOMContentLoaded", () => {
    * Update the handleCreateEdit function to include track validation
    */
   async function handleCreateEdit() {
-    const csInterface = new CSInterface()
     if (appState.ui.isProcessing) {
       logToPanel("Create edit button clicked while already processing", "warning");
       return;
@@ -1908,8 +1945,6 @@ document.addEventListener("DOMContentLoaded", () => {
       editData.speakers.push({ name: speakerName, cameras });
     }
 
-    logToPanel(`Sending edit data to Premiere Pro: ${JSON.stringify(editData)}`, "info");
-
     const { frequency, minCutDuration, audioThreshold } = appState.formData;
     const mergeGapMap = {
       low: minCutDuration * 0.25,
@@ -1945,13 +1980,18 @@ document.addEventListener("DOMContentLoaded", () => {
       );
 
       showToast("Running audio analysis on all tracks…", "info");
-      // document.getElementById("out").textContent = `${args.join(" ")} length: ${args.length}`;
       logToPanel(`Invoking analysis with ${args.length} arguments`, "info");
 
-      // 3) Call the packaged CLI once
       const stdout = await runAudioAnalysis(args);
-      const { timeline } = JSON.parse(stdout);
-      // logToPanel(`Received ${timeline} timeline entries`, "info");
+      const { timeline, err } = JSON.parse(stdout);
+
+      if (err) {
+        throw new Error(err);
+      }
+
+      if (!timeline) {
+        throw new Error("Timeline not found in analysis output");
+      }
 
       await new Promise(resolve => {
         csInterface.evalScript(
@@ -2086,8 +2126,6 @@ document.addEventListener("DOMContentLoaded", () => {
    * @param {Object} presetData - The preset data to load
    */
   function loadPreset(presetData) {
-    logToPanel(`Loading preset data: ${JSON.stringify(presetData)}`, "info")
-
     // Update state
     appState.formData = JSON.parse(JSON.stringify(presetData))
 
@@ -2222,115 +2260,65 @@ document.addEventListener("DOMContentLoaded", () => {
     button.appendChild(circle)
   }
 
-  // async function runAudioAnalysis(cliArgs) {
-  //   return new Promise((resolve, reject) => {
-  //     const cs = new CSInterface();
-  //     const extDir = cs.getSystemPath(SystemPath.EXTENSION);
-  //     const isWin = cs.getOSInformation().includes("Windows");
-  //     const sep = isWin ? "\\" : "/";
-
-  //     if (!Array.isArray(cliArgs) || cliArgs.length < 4) {
-  //       return reject("runAudioAnalysis requires at least one file+tracks and the 3 params");
-  //     }
-
-  //     const safeArgs = cliArgs.map(arg => {
-  //       const s = String(arg);
-  //       return isWin ? s.replace(/\\/g, "\\\\") : s;
-  //     });
-
-  //     // pick the binary
-  //     const exeName = isWin ? "audioTool-win.exe" : "audioTool-mac";
-  //     let exePath = extDir + sep + "audioAnalysis" + sep + exeName;
-  //     if (isWin) exePath = exePath.replace(/\\/g, "\\\\");
-
-  //     // start the process
-  //     const startRes = window.cep.process.createProcess(exePath, ...safeArgs);
-  //     if (startRes.err !== 0) {
-  //       return reject(`Error starting analysis process: ${startRes.err}`);
-  //     }
-  //     const pid = startRes.data;
-
-  //     // poll until it exits
-  //     const poll = setInterval(() => {
-  //       const stat = window.cep.process.isRunning(pid);
-  //       if (stat.err !== 0) {
-  //         clearInterval(poll);
-  //         return reject(`Error polling process: ${stat.err}`);
-  //       }
-  //       if (!stat.data) {
-  //         clearInterval(poll);
-  //         // read its stderr
-  //         // window.cep.process.stderr(pid, stdout => {
-  //         // 	if (!stdout) {
-  //         // 		return reject("No output from analysis tool");
-  //         // 	}
-  //         // 	resolve(stdout);
-  //         // });
-  //         window.cep.process.stdout(pid, stdout => {
-  //           if (!stdout) {
-  //             return reject("No output from analysis tool");
-  //           }
-  //           resolve(stdout);
-  //         });
-  //       }
-  //     }, 300);
-  //   });
-  // }
-
   async function runAudioAnalysis(cliArgs) {
-  return new Promise((resolve, reject) => {
-    const cs     = new CSInterface();
-    const extDir = cs.getSystemPath(SystemPath.EXTENSION);
-    const isWin  = cs.getOSInformation().includes("Windows");
-    const sep    = isWin ? "\\" : "/";
+    return new Promise((resolve, reject) => {
+      try {
+        const cs = new CSInterface();
+        const extDir = cs.getSystemPath(SystemPath.EXTENSION);
+        const isWin = cs.getOSInformation().includes("Windows");
+        const sep = isWin ? "\\" : "/";
 
-    if (!Array.isArray(cliArgs) || cliArgs.length < 4) {
-      return reject("runAudioAnalysis requires at least one file+tracks and the 3 params");
-    }
-
-    // Escape Windows backslashes
-    const safeArgs = cliArgs.map(a => String(a).replace(/\\/g, "\\\\"));
-
-    // Build path to your CLI in `audioanalysis/`
-    const exeName = isWin ? "audioTool-win.exe" : "audioTool-mac";
-    let exePath = extDir + sep + "audioAnalysis" + sep + exeName;
-    if (isWin) exePath = exePath.replace(/\\/g, "\\\\");
-
-    // Start the process directly (no cmd.exe /bin/sh)
-    const startRes = window.cep.process.createProcess(exePath, ...safeArgs);
-    if (startRes.err !== 0) {
-      return reject(`Error starting analysis process: ${startRes.err}`);
-    }
-    const pid = startRes.data;
-
-    // Capture both streams
-    let stdoutData = "";
-    let stderrData = "";
-    window.cep.process.stdout(pid, chunk => { stdoutData += chunk; });
-    window.cep.process.stderr(pid, chunk => { stderrData += chunk; });
-
-    // Poll until it exits
-    const poll = setInterval(() => {
-      const stat = window.cep.process.isRunning(pid);
-      if (stat.err !== 0) {
-        clearInterval(poll);
-        return reject(`Error polling process: ${stat.err}`);
-      }
-      if (!stat.data) {
-        clearInterval(poll);
-        // If any stderr output, treat as error
-        if (stderrData.trim()) {
-          return reject(stderrData.trim());
+        if (!Array.isArray(cliArgs) || cliArgs.length < 4) {
+          return reject({ err: "runAudioAnalysis requires at least one file+tracks and the 3 params" });
         }
-        // Else return stdout (must be JSON)
-        if (!stdoutData.trim()) {
-          return reject("No output from analysis tool");
+
+        // Escape Windows backslashes
+        const safeArgs = cliArgs.map(a => String(a).replace(/\\/g, "\\\\"));
+
+        // Build path to your CLI in `audioanalysis/`
+        const exeName = isWin ? "audioTool-win.exe" : "audioTool-mac";
+        let exePath = extDir + sep + "audioAnalysis" + sep + exeName;
+        if (isWin) exePath = exePath.replace(/\\/g, "\\\\");
+
+        // Start the process directly (no cmd.exe /bin/sh)
+        const startRes = window.cep.process.createProcess(exePath, ...safeArgs);
+        if (startRes.err !== 0) {
+          return reject({ err: `Error starting analysis process: ${startRes.err}` });
         }
-        resolve(stdoutData);
+        const pid = startRes.data;
+
+        // Capture both streams
+        let stdoutData = "";
+        let stderrData = "";
+        window.cep.process.stdout(pid, chunk => { stdoutData += chunk; });
+        window.cep.process.stderr(pid, chunk => { stderrData += chunk; });
+
+        // Poll until it exits
+        const poll = setInterval(() => {
+          const stat = window.cep.process.isRunning(pid);
+          if (stat.err !== 0) {
+            clearInterval(poll);
+            return reject({ err: `Error polling process: ${stat.err}` });
+          }
+          if (!stat.data) {
+            clearInterval(poll);
+            // If any stderr output, treat as error
+            if (stderrData.trim()) {
+              return reject({ err: stderrData.trim() });
+            }
+            // Else return stdout (must be JSON)
+            if (!stdoutData.trim()) {
+              clearInterval(poll);
+              return reject({ err: "No output from analysis tool" });
+            }
+            resolve(stdoutData);
+          }
+        }, 500);
+      } catch (error) {
+        reject({ err: error });
       }
-    }, 500);
-  });
-}
+    });
+  }
 
   init();
 })

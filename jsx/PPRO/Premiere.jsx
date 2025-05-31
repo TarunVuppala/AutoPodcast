@@ -2915,6 +2915,7 @@ $._PPP_ = {
 			alert("No colorspace available.");
 		}
 	},
+	
 	moveTrackItemOnTimeline: function () {
 		app.project.sequences[0].audioTracks[0].clips[0].move(13);
 		app.project.sequences[0].videoTracks[0].clips[0].move(13);
