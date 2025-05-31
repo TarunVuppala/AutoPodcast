@@ -3100,7 +3100,7 @@ $._PPP_ = {
 					track.clips[0].remove(true, true);
 				}
 			}
-			$._PPP_.saveProject();
+			// $._PPP_.saveProject();
 
 			for (var idx = 0; idx < tl.length; idx++) {
 				var e = tl[idx];
