@@ -1099,6 +1099,7 @@ body {
   font-size: 1rem;
   transition: all var(--transition-normal);
   font-family: inherit;
+  outline: none;
 }
 
 .auth-input:focus {

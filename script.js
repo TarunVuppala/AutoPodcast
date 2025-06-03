@@ -8,25 +8,21 @@ function onLoaded() {
   loadJSX();
 
   csInterface.addEventListener("com.adobe.csxs.events.PProPanelRenderEvent", function (event) {
-    alert(event.data);
+    logToPanel(event.data, "info");
   });
 
   csInterface.addEventListener("com.adobe.csxs.events.WorkspaceChanged", function (event) {
-    alert("New workspace selected: " + event.data);
+    logToPanel(`New workspace selected:  ${event.data}`, "info");
   });
 
   csInterface.addEventListener("com.adobe.ccx.start.handleLicenseBanner", function (event) {
-    alert("User chose to go \"Home\", wherever that is...");
+    logToPanel("User chose to go \"Home\", wherever that is...", "info");
   });
 
   csInterface.addEventListener("ApplicationBeforeQuit", function (event) {
     csInterface.evalScript("$._PPP_.closeLog()");
   });
 
-  csInterface.evalScript("$._PPP_.getVersionInfo()", myVersionInfoFunction);
-  csInterface.evalScript("$._PPP_.getActiveSequenceName()", myCallBackFunction);
-  csInterface.evalScript("$._PPP_.getUserName()", myUserNameFunction);
-  csInterface.evalScript("$._PPP_.getProjectProxySetting()", myGetProxyFunction);
   csInterface.evalScript("$._PPP_.keepPanelLoaded()");
   csInterface.evalScript("$._PPP_.disableImportWorkspaceWithProjects()");
   csInterface.evalScript("$._PPP_.registerProjectPanelSelectionChangedFxn()");  	// Project panel selection changed
@@ -48,34 +44,6 @@ function onLoaded() {
 
   var entireCallWithParams = prefix + locale + postfix;
   csInterface.evalScript(entireCallWithParams);
-}
-
-function myCallBackFunction(data) {
-  // Updates seq_display with whatever ExtendScript function returns.
-  var boilerPlate = "Active Sequence: ";
-  var seq_display = document.getElementById("active_seq");
-  seq_display.innerHTML = boilerPlate + data;
-}
-
-function myUserNameFunction(data) {
-  // Updates username with whatever ExtendScript function returns.
-  var user_name = document.getElementById("username");
-  user_name.innerHTML = data;
-}
-
-function myGetProxyFunction(data) {
-  // Updates proxy_display based on current sequence's value.
-  var boilerPlate = "Proxies enabled for project: ";
-  var proxy_display = document.getElementById("proxies_on");
-
-  if (proxy_display !== null) {
-    proxy_display.innerHTML = boilerPlate + data;
-  }
-}
-
-function myVersionInfoFunction(data) {
-  var v_string = document.getElementById("version_string");
-  v_string.innerHTML = data;
 }
 
 /**
@@ -141,96 +109,135 @@ function logToPanel(message, type = "info") {
   }
 }
 
+const appState = {
+  // Form data
+  formData: {
+    cuttingMethod: "disabled",
+    frequency: "medium",
+    transitions: true,
+    numSpeakers: 2,
+    numCameras: 2,
+    speakerNames: ["", "", "", "", ""],
+    trackMapping: [], // Will store camera to speaker mapping
+    trackNumbers: [], // Will store video track numbers
+    audioTrackNumbers: [], // Will store audio track numbers
+    minCutDuration: 1.5,
+    audioThreshold: "-30dB",
+    transitionType: "cut",
+  },
+
+  // UI state
+  ui: {
+    isProcessing: false,
+    advancedSettingsExpanded: false,
+    errors: {},
+    isDirty: false,
+    theme: "dark", // Default theme
+    globalError: null,
+    isNewPreset: false,
+    tracksLoaded: false, // Flag to indicate if tracks have been loaded
+  },
+
+  // Track information from Premiere Pro
+  trackInfo: {
+    audioTracks: [],
+    videoTracks: [],
+    audioTracksCount: 0,
+    videoTracksCount: 0,
+    hasErrors: false,
+    errorMessages: [],
+    audioTrackStatus: [], // 0: no clip, 1: one clip, 2: multiple clips
+    videoTrackStatus: [], // 0: no clip, 1: one clip, 2: multiple clips
+    tracksMatch: true, // Flag to indicate if audio and video track counts match
+  },
+
+  // Track validation results
+  trackValidation: {
+    valid: true,
+    message: "",
+    details: [],
+    audioTracks: 0,
+    videoTracks: 0,
+  },
+
+  // Presets
+  presets: [],
+  currentPresetIndex: null,
+  authState: {
+    apiKey: null,
+    email: null,
+    isAuthenticated: false,
+    lastVerified: null,
+    verificationInterval: 30 * 24 * 60 * 60 * 1000,
+    trialMode: false,
+    trialExpiry: null,
+    error: null,
+    deviceId: null,
+    userId: null,
+  }
+}
+
+const elements = {
+  // Form elements
+  cuttingMethod: document.getElementById("cuttingMethod"),
+  frequency: document.getElementById("frequency"),
+  transitions: document.getElementById("transitions"),
+  numSpeakers: document.getElementById("numSpeakers"),
+  numCameras: document.getElementById("numCameras"),
+  speakerNames: document.getElementById("speakerNames"),
+  trackMapping: document.getElementById("trackMapping"),
+  minCutDuration: document.getElementById("minCutDuration"),
+  audioThreshold: document.getElementById("audioThreshold"),
+  transitionType: document.getElementById("transitionType"),
+
+  // Buttons
+  createEditBtn: document.getElementById("createEditBtn"),
+  resetFormBtn: document.getElementById("resetFormBtn"),
+  presetSelect: document.getElementById("presetSelect"),
+  presetNewBtn: document.getElementById("presetNewBtn"),
+  presetUpdateBtn: document.getElementById("presetUpdateBtn"),
+  presetDeleteBtn: document.getElementById("presetDeleteBtn"),
+  themeToggleBtn: document.getElementById("themeToggleBtn"),
+
+  // Advanced settings
+  advancedSection: document.querySelector(".collapsible"),
+  collapseBtn: document.querySelector(".collapse-btn"),
+
+  // Global error display
+  globalErrorContainer: document.getElementById("globalErrorContainer"),
+
+  // Track validation display
+  trackValidationContainer: document.getElementById("trackValidationContainer"),
+  trackInfoBanner: document.querySelector(".track-info-banner"),
+
+  // Modal elements
+  presetModal: document.getElementById("presetModal"),
+  presetName: document.getElementById("presetName"),
+  savePresetBtn: document.getElementById("savePresetBtn"),
+  cancelPresetBtn: document.getElementById("cancelPresetBtn"),
+  modalCloseBtn: document.getElementById("modalCloseBtn"),
+}
+
+function getDeviceId() {
+  const KEY = 'device-id';
+  let id = localStorage.getItem(KEY);
+
+  if (!id) {
+    id = crypto.randomUUID ? crypto.randomUUID()
+      : v4Fallback();
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+}
+
+function v4Fallback() {
+  return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
+    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+  );
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   const csInterface = new CSInterface();
-
-  // Update the appState to include more validation fields and track information
-  const appState = {
-    // Form data
-    formData: {
-      cuttingMethod: "disabled",
-      frequency: "medium",
-      transitions: true,
-      numSpeakers: 2,
-      numCameras: 2,
-      speakerNames: ["", "", "", "", ""],
-      trackMapping: [], // Will store camera to speaker mapping
-      trackNumbers: [], // Will store video track numbers
-      audioTrackNumbers: [], // Will store audio track numbers
-      minCutDuration: 1.5,
-      audioThreshold: "-30dB",
-      transitionType: "cut",
-    },
-
-    // UI state
-    ui: {
-      isProcessing: false,
-      advancedSettingsExpanded: false,
-      errors: {},
-      isDirty: false,
-      theme: "dark", // Default theme
-      globalError: null,
-      isNewPreset: false,
-      tracksLoaded: false, // Flag to indicate if tracks have been loaded
-    },
-
-    // Track information from Premiere Pro
-    trackInfo: {
-      audioTracks: [],
-      videoTracks: [],
-      audioTracksCount: 0,
-      videoTracksCount: 0,
-      hasErrors: false,
-      errorMessages: [],
-      audioTrackStatus: [], // 0: no clip, 1: one clip, 2: multiple clips
-      videoTrackStatus: [], // 0: no clip, 1: one clip, 2: multiple clips
-      tracksMatch: true, // Flag to indicate if audio and video track counts match
-    },
-
-    // Track validation results
-    trackValidation: {
-      valid: true,
-      message: "",
-      details: [],
-      audioTracks: 0,
-      videoTracks: 0,
-    },
-
-    // Presets
-    presets: [],
-    currentPresetIndex: null,
-    authState: {
-      apiKey: null,
-      email: null,
-      isAuthenticated: false,
-      lastVerified: null,
-      verificationInterval: 30 * 24 * 60 * 60 * 1000,
-      trialMode: false,
-      trialExpiry: null,
-      error: null,
-      deviceId: null,
-      userId: null,
-    }
-  }
-
-  function getDeviceId() {
-    const KEY = 'device-id';
-    let id = localStorage.getItem(KEY);
-
-    if (!id) {
-      id = crypto.randomUUID ? crypto.randomUUID()
-        : v4Fallback();
-      localStorage.setItem(KEY, id);
-    }
-    return id;
-  }
-
-  function v4Fallback() {
-    return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
-      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-    );
-  }
 
   const authState = appState.authState;
   authState.deviceId = getDeviceId();
@@ -303,7 +310,6 @@ document.addEventListener("DOMContentLoaded", () => {
       logToPanel(`Response: ${resp.status} ${resp.statusText}`, "info");
 
       const json = await resp.json();
-      logToPanel(`Response JSON: ${json}`, "info");
 
       if (resp.ok && json.userVerified) {
         authState.apiKey = key;
@@ -395,6 +401,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function showApp() {
     document.getElementById("appContent").style.display = "block";
+    appInit();
     closeAuthModal();
   }
 
@@ -403,17 +410,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!loaded || !authState.isAuthenticated || needsVerification()) {
       if (authState.trialMode && isTrialValid()) {
         showTrialBanner();
-        showApp();
         return true;
       }
       logToPanel("Api key trial", "info")
 
-      showAuthModal();
       return false;
     }
     if (authState.trialMode && isTrialValid()) showTrialBanner();
 
-    showApp();
     logToPanel("Api key verified", "info")
     return true;
   }
@@ -436,13 +440,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const email = emailInput.value.trim();
 
       if (!key) {
-        apiErrorDiv.textContent = "Please enter a license key";
+        authError.textContent = "Please enter a license key";
         apiInput.classList.add("error");
         return;
       }
 
       if (!email) {
-        emailErrorDiv.textContent = "Please enter a license key";
+        authError.textContent = "Please enter an email address.";
         emailInput.classList.add("error");
         return;
       }
@@ -465,7 +469,6 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.textContent = "Activate License";
 
       if (ok) {
-        closeAuthModal();
         showToast("License activated!", "success");
         showApp();
         return;
@@ -477,16 +480,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById("startTrialBtn").addEventListener("click", () => {
       startTrial();
-      closeAuthModal();
       showApp();
-      showToast("Trial started (14 days)", "success");
       showTrialBanner();
+      showToast("Trial started (14 days)", "success");
       return;
-    });
-
-    document.getElementById("apiKey").addEventListener("focus", e => {
-      e.target.classList.remove("error");
-      document.getElementById("apiKeyError").textContent = "";
     });
   }
 
@@ -496,6 +493,7 @@ document.addEventListener("DOMContentLoaded", () => {
       showApp();
       return;
     }
+    showAuthModal();
     ["apiKey", "emailId"].forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -505,9 +503,9 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("verifyKeyBtn").click();
         }
       });
-      el.addEventListener("focus", () => {
-        document.getElementById(id + "Error").textContent = "";
-        el.classList.remove("error");
+      el.addEventListener("focus", e => {
+        e.target.classList.remove("error");
+        document.getElementById("authError").textContent = "";
       });
     });
   }
@@ -562,70 +560,32 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // DOM Elements
-  const elements = {
-    // Form elements
-    cuttingMethod: document.getElementById("cuttingMethod"),
-    frequency: document.getElementById("frequency"),
-    transitions: document.getElementById("transitions"),
-    numSpeakers: document.getElementById("numSpeakers"),
-    numCameras: document.getElementById("numCameras"),
-    speakerNames: document.getElementById("speakerNames"),
-    trackMapping: document.getElementById("trackMapping"),
-    minCutDuration: document.getElementById("minCutDuration"),
-    audioThreshold: document.getElementById("audioThreshold"),
-    transitionType: document.getElementById("transitionType"),
-
-    // Buttons
-    createEditBtn: document.getElementById("createEditBtn"),
-    resetFormBtn: document.getElementById("resetFormBtn"),
-    presetSelect: document.getElementById("presetSelect"),
-    presetNewBtn: document.getElementById("presetNewBtn"),
-    presetUpdateBtn: document.getElementById("presetUpdateBtn"),
-    presetDeleteBtn: document.getElementById("presetDeleteBtn"),
-    themeToggleBtn: document.getElementById("themeToggleBtn"),
-
-    // Advanced settings
-    advancedSection: document.querySelector(".collapsible"),
-    collapseBtn: document.querySelector(".collapse-btn"),
-
-    // Global error display
-    globalErrorContainer: document.getElementById("globalErrorContainer"),
-
-    // Track validation display
-    trackValidationContainer: document.getElementById("trackValidationContainer"),
-    trackInfoBanner: document.querySelector(".track-info-banner"),
-
-    // Modal elements
-    presetModal: document.getElementById("presetModal"),
-    presetName: document.getElementById("presetName"),
-    savePresetBtn: document.getElementById("savePresetBtn"),
-    cancelPresetBtn: document.getElementById("cancelPresetBtn"),
-    modalCloseBtn: document.getElementById("modalCloseBtn"),
-  }
-
   /**
    * Initialize the application
    * This is the main entry point
    */
-  function init() {
+  function appSetup() {
     logToPanel("Initializing Multi-Camera Edit Tool", "info")
-    authSetup();
-    updateThemeUI()
-    if (!appState.authState.isAuthenticated) {
-      logToPanel("Not verified", "info")
-      return
-    }
-
-    // Load theme preference
     loadThemePreference()
-
-    // Load presets from storage
+    updateThemeUI()
     loadPresetsFromStorage()
-
-    // Set up initial UI for speakers only
     updateSpeakersUI()
+    setupEventListeners()
+    document.querySelector(".timbre-panel").classList.add("fade-in")
+    updateMinCutDurationBasedOnFrequency()
+    setupAdvancedSettings()
+  }
+  let appStarted = false;
 
+  function appInit() {
+    if (appStarted) return;
+    appSetup()
+    appStarted = true;
+    requestTrackInfo()
+  }
+
+  function requestTrackInfo() {
+    logToPanel("Requesting track information from Premiere Pro...", "info")
     // Disable the create edit button until tracks are loaded
     if (elements.createEditBtn) {
       elements.createEditBtn.disabled = true
@@ -652,17 +612,7 @@ document.addEventListener("DOMContentLoaded", () => {
       `
     }
 
-    // Set up event listeners
-    setupEventListeners()
-
-    // Add animation class to main panel
-    document.querySelector(".timbre-panel").classList.add("fade-in")
-
-    // Configure minCutDuration based on frequency
-    updateMinCutDurationBasedOnFrequency()
-
     // Check track info from Premiere Pro first
-    logToPanel("Requesting track information from Premiere Pro...", "info")
     checkTrackInfo((trackInfo) => {
       // Enable the create edit button now that tracks are loaded
       if (elements.createEditBtn) {
@@ -682,9 +632,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Now update the track mapping UI with the track info
       updateTrackMappingUI()
-
-      // Set up advanced settings
-      setupAdvancedSettings()
 
       // Update UI with track info if needed
       if (trackInfo.hasErrors) {
@@ -1892,7 +1839,6 @@ document.addEventListener("DOMContentLoaded", () => {
       await new Promise(resolve => checkTrackInfo(resolve));
       logToPanel("Track check complete, validating form", "info");
     } catch (e) {
-      // if your checkTrackInfo can reject, handle here
       logToPanel("Track check failed: " + e, "error");
       resetCreateButton();
       return;
@@ -1915,7 +1861,22 @@ document.addEventListener("DOMContentLoaded", () => {
                    M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
         </svg>
       </span>
-      Processing...
+      Creating clone...
+    `;
+
+    csInterface.evalScript("$._PPP_.createClone()");
+    logToPanel("Created clone", "info");
+
+    elements.createEditBtn.innerHTML = `
+      <span class="btn-icon">
+        <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
+                   M16.24 16.24l2.83 2.83M2 12h4M18 12h4
+                   M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+      </span>
+      Processing Data...
     `;
 
     const editData = {
@@ -1953,9 +1914,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     const mergeGap = mergeGapMap[frequency] ?? (minCutDuration * 0.5);
 
-    csInterface.evalScript("$._PPP_.createClone()");
-    logToPanel("Created clone", "info");
-
     try {
       const args = [];
       for (let i = 0; i < appState.formData.numCameras; i++) {
@@ -1982,6 +1940,18 @@ document.addEventListener("DOMContentLoaded", () => {
       showToast("Running audio analysis on all tracks…", "info");
       logToPanel(`Invoking analysis with ${args.length} arguments`, "info");
 
+      elements.createEditBtn.innerHTML = `
+      <span class="btn-icon">
+        <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
+                   M16.24 16.24l2.83 2.83M2 12h4M18 12h4
+                   M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+      </span>
+      Running analysis on all tracks...
+      `; 
+
       const stdout = await runAudioAnalysis(args);
       const { timeline, err } = JSON.parse(stdout);
 
@@ -1992,6 +1962,18 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!timeline) {
         throw new Error("Timeline not found in analysis output");
       }
+
+      elements.createEditBtn.innerHTML = `
+        <span class="btn-icon">
+          <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
+                    M16.24 16.24l2.83 2.83M2 12h4M18 12h4
+                    M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+        </span>
+        Applying cuts to timeline...
+      `;
 
       await new Promise(resolve => {
         csInterface.evalScript(
@@ -2319,6 +2301,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
-
-  init();
+  document.getElementById('reloadBtn').addEventListener('click', () => window.location.reload());
+  authSetup();
 })
