@@ -2014,6 +2014,7 @@ $._PPP_ = {
 		if (version < 14.0) {
 			$._PPP_.updateEventPanel("Note: PProPanel relies on features added in 14.0, but is currently running in " + version + ".");
 		}
+		return version;
 	},
 
 	changeMarkerColors: function () {
