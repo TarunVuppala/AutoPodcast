@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionManifest Version="5.0"
-                   ExtensionBundleId="com.unity.timbre.multi_camera_editor"
+                   ExtensionBundleId="com.unity.timbre.multi_camera_editor.dev"
                    ExtensionBundleVersion="1.0"
-                   ExtensionBundleName="Timbre Multi Cam Auto Edit Plugin"
+                   ExtensionBundleName="Timbre Multi Cam Auto Edit Plugin Dev."
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
-    <Extension Id="com.unity.timbre.multi_camera_editor" Version="0.1" />
+    <Extension Id="com.unity.timbre.multi_camera_editor.dev" Version="0.1" />
   </ExtensionList>
   <CEFCommandLine>
     <Parameter>--enable-nodejs</Parameter>
@@ -22,7 +22,7 @@
     </RequiredRuntimeList>
   </ExecutionEnvironment>
   <DispatchInfoList>
-    <Extension Id="com.unity.timbre.multi_camera_editor">
+    <Extension Id="com.unity.timbre.multi_camera_editor.dev">
       <DispatchInfo>
         <Resources>
           <MainPath>./index.html</MainPath>
@@ -38,7 +38,7 @@
         </Lifecycle>
         <UI>
           <Type>Panel</Type>
-          <Menu>Timbre Plugin</Menu>
+          <Menu>Timbre Plugin 1</Menu>
           <Geometry>
             <Size>
               <Height>650</Height>

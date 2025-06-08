@@ -721,16 +721,6 @@ function onLoaded() {
 
     csInterface.evalScript("$._PPP_.keepPanelLoaded()")
     csInterface.evalScript("$._PPP_.disableImportWorkspaceWithProjects()")
-    csInterface.evalScript("$._PPP_.registerProjectPanelSelectionChangedFxn()")
-    csInterface.evalScript("$._PPP_.registerItemAddedFxn()")
-    csInterface.evalScript("$._PPP_.registerProjectChangedFxn()")
-    csInterface.evalScript("$._PPP_.registerSequenceSelectionChangedFxn()")
-    csInterface.evalScript("$._PPP_.registerSequenceActivatedFxn()")
-    csInterface.evalScript("$._PPP_.registerActiveSequenceStructureChangedFxn()")
-    csInterface.evalScript("$._PPP_.registerItemsAddedToProjectFxn()")
-    csInterface.evalScript("$._PPP_.registerSequenceMessaging()")
-    csInterface.evalScript("$._PPP_.registerActiveSequenceChangedFxn()")
-    csInterface.evalScript("$._PPP_.confirmPProHostVersion()")
     csInterface.evalScript("$._PPP_.forceLogfilesOn()")
 
     var prefix = "$._PPP_.setLocale('"
@@ -795,7 +785,7 @@ function logToPanel(message, type = "info") {
         formattedMessage = escapedMessage
     }
 
-    csInterface.evalScript(`$._PPP_.updateEventPanel('${formattedMessage}')`)
+    // csInterface.evalScript(`$._PPP_.updateEventPanel('${formattedMessage}')`)
   } catch (error) {
     try {
       const errorContainer = document.getElementById("globalErrorContainer")
@@ -934,33 +924,40 @@ function initializeElements() {
   elements.modalCloseBtn = document.getElementById("modalCloseBtn")
 }
 
-function getDeviceId() {
-  try {
-    const KEY = "device-id"
-    let id = localStorage.getItem(KEY)
+const DEVICE_PEPPER = "q8L@91$y:Bfp0w3vHs*N6cZr4eT2gKd";
 
-    if (!id) {
-      // Fix: Use a simpler UUID generation method that works in CEP
-      id = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-        var r = (Math.random() * 16) | 0,
-          v = c == "x" ? r : (r & 0x3) | 0x8
-        return v.toString(16)
-      })
-      localStorage.setItem(KEY, id)
-    }
-    return id
-  } catch (error) {
-    timbreErrorHandler.handleError(ErrorCodes.STORAGE_ACCESS_DENIED, { operation: "getDeviceId" }, error)
-    return "fallback-device-id-" + Date.now()
+function _hex(buf) { return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join(""); }
+async function sha256Hex(s) { return _hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s))); }
+
+async function getDeviceId() {
+  try {
+    const cs = new CSInterface();
+
+    const fp = await new Promise(res =>
+      cs.evalScript('$._PPP_.getStableFingerprint()', res));
+
+    logToPanel("Fingerprint ➜ " + fp, "debug");
+
+    const id = (await sha256Hex(DEVICE_PEPPER + fp)).slice(0, 32);
+
+    logToPanel("Device-ID (derived) ➜ " + id, "info");
+    return id;
+
+  } catch (err) {
+    logToPanel("getDeviceId ERROR: " + err.message, "error");
+    const tmp = crypto.randomUUID().replace(/-/g, "");
+    logToPanel("Tmp Device-ID ➜ " + tmp, "warn");
+    return tmp;
   }
 }
+
 
 // Global showToast function that uses the error handler
 function showToast(message, type = "info") {
   timbreErrorHandler.showToast(message, type)
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   try {
     initializeElements()
 
@@ -969,9 +966,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return
     }
 
-    const csInterface = new CSInterface()
     const authState = appState.authState
-    authState.deviceId = getDeviceId()
+
+    authState.deviceId = await getDeviceId()
+    logToPanel(`device id: ${authState.deviceId}`, "info")
 
     function loadApiKey() {
       try {
@@ -2835,7 +2833,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           const safeArgs = cliArgs.map((a) => String(a).replace(/\\/g, "\\\\"))
           const exeName = isWin ? "audioTool-win.exe" : "audioTool-mac"
-          const exePath = `${extDir}${sep}audioTool${sep}${exeName}`
+          const exePath = `${extDir}${sep}audioAnalysis${sep}${exeName}`
 
           timbreErrorHandler.logInfo(`Running: ${exePath} ${safeArgs.join(" ")}`)
 
@@ -2920,6 +2918,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       })
     }
+
+    loadThemePreference()
+    updateThemeUI()
 
     // Initialize authentication
     authSetup()
