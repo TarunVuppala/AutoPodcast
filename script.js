@@ -1,17 +1,16 @@
 /**
- * Multi-Camera Edit Tool with Integrated Error Handling
- * JavaScript functionality for the Timbre Panel interface
+ * Multi-Camera Edit Tool with Enhanced Authentication and Processing
  */
 
 // Error severity levels
 const ErrorSeverity = {
-  LOW: "low", // Warnings - things that might cause issues
-  MEDIUM: "medium", // Errors - things that will cause problems
-  HIGH: "high", // Critical errors - major functionality broken
-  CRITICAL: "critical", // System errors - complete failure
+  LOW: "low",
+  MEDIUM: "medium",
+  HIGH: "high",
+  CRITICAL: "critical",
 }
 
-// Error categories with specific codes
+// Error codes
 const ErrorCodes = {
   // Authentication errors (1000-1099)
   AUTH_INVALID_KEY: 1001,
@@ -20,6 +19,7 @@ const ErrorCodes = {
   AUTH_DEVICE_LIMIT: 1004,
   AUTH_INVALID_EMAIL: 1005,
   AUTH_SERVER_ERROR: 1006,
+  AUTH_BYPASS_ATTEMPT: 1007,
 
   // Premiere Pro integration errors (1100-1199)
   PPRO_NOT_CONNECTED: 1101,
@@ -30,42 +30,42 @@ const ErrorCodes = {
   PPRO_NO_PROJECT: 1106,
 
   // Track validation warnings/errors (1200-1299)
-  TRACK_NO_CLIPS: 1201, // Warning - only if assigned
-  TRACK_MULTIPLE_CLIPS: 1202, // Warning - only if assigned
-  TRACK_DUPLICATE_ASSIGNMENT: 1203, // Error
-  TRACK_COUNT_MISMATCH: 1204, // Warning
-  TRACK_INVALID_FORMAT: 1205, // Warning
-  TRACK_ACCESS_DENIED: 1206, // Error
+  TRACK_NO_CLIPS: 1201,
+  TRACK_MULTIPLE_CLIPS: 1202,
+  TRACK_DUPLICATE_ASSIGNMENT: 1203,
+  TRACK_COUNT_MISMATCH: 1204,
+  TRACK_INVALID_FORMAT: 1205,
+  TRACK_ACCESS_DENIED: 1206,
 
   // Form validation errors (1300-1399)
-  FORM_MISSING_SPEAKER_NAMES: 1301, // Error
-  FORM_INVALID_CAMERA_ASSIGNMENT: 1302, // Error
-  FORM_INVALID_AUDIO_THRESHOLD: 1303, // Warning
-  FORM_INVALID_CUT_DURATION: 1304, // Warning
-  FORM_INVALID_FREQUENCY: 1305, // Warning
+  FORM_MISSING_SPEAKER_NAMES: 1301,
+  FORM_INVALID_CAMERA_ASSIGNMENT: 1302,
+  FORM_INVALID_AUDIO_THRESHOLD: 1303,
+  FORM_INVALID_CUT_DURATION: 1304,
+  FORM_INVALID_FREQUENCY: 1305,
 
   // Audio analysis errors (1400-1499)
-  AUDIO_ANALYSIS_FAILED: 1401, // Error
-  AUDIO_FILE_NOT_FOUND: 1402, // Error
-  AUDIO_INVALID_FORMAT: 1403, // Warning
-  AUDIO_PROCESSING_TIMEOUT: 1404, // Error
-  AUDIO_TOOL_MISSING: 1405, // Critical
-  AUDIO_PERMISSION_DENIED: 1406, // Error
+  AUDIO_ANALYSIS_FAILED: 1401,
+  AUDIO_FILE_NOT_FOUND: 1402,
+  AUDIO_INVALID_FORMAT: 1403,
+  AUDIO_PROCESSING_TIMEOUT: 1404,
+  AUDIO_TOOL_MISSING: 1405,
+  AUDIO_PERMISSION_DENIED: 1406,
 
   // Storage errors (1500-1599)
-  STORAGE_QUOTA_EXCEEDED: 1501, // Warning
-  STORAGE_ACCESS_DENIED: 1502, // Warning
-  STORAGE_CORRUPTED_DATA: 1503, // Warning
-  STORAGE_BROWSER_UNSUPPORTED: 1504, // Warning
+  STORAGE_QUOTA_EXCEEDED: 1501,
+  STORAGE_ACCESS_DENIED: 1502,
+  STORAGE_CORRUPTED_DATA: 1503,
+  STORAGE_BROWSER_UNSUPPORTED: 1504,
 
   // System errors (1600-1699)
-  SYSTEM_OUT_OF_MEMORY: 1601, // Error
-  SYSTEM_PERMISSION_DENIED: 1602, // Error
-  SYSTEM_UNKNOWN_ERROR: 1603, // Error
-  SYSTEM_BROWSER_INCOMPATIBLE: 1604, // Warning
+  SYSTEM_OUT_OF_MEMORY: 1601,
+  SYSTEM_PERMISSION_DENIED: 1602,
+  SYSTEM_UNKNOWN_ERROR: 1603,
+  SYSTEM_BROWSER_INCOMPATIBLE: 1604,
 }
 
-// Error definitions with appropriate severity levels
+// Error definitions
 const ErrorDefinitions = {
   [ErrorCodes.AUTH_INVALID_KEY]: {
     severity: ErrorSeverity.HIGH,
@@ -85,7 +85,7 @@ const ErrorDefinitions = {
     recoverySteps: [
       "Check your internet connection",
       "Try again in a few moments",
-      "Use 'Start Free Trial' if you need immediate access",
+      "Contact support if the issue persists",
     ],
     autoRecovery: true,
     retryDelay: 5000,
@@ -106,11 +106,18 @@ const ErrorDefinitions = {
   [ErrorCodes.AUTH_EXPIRED_TRIAL]: {
     severity: ErrorSeverity.HIGH,
     title: "Trial Period Expired",
-    message: "Your 14-day trial period has ended.",
+    message: "Your trial period has ended.",
     recoverySteps: [
       "Visit our website to purchase a full license",
       "Check your email for any license keys from previous purchases",
     ],
+  },
+
+  [ErrorCodes.AUTH_BYPASS_ATTEMPT]: {
+    severity: ErrorSeverity.CRITICAL,
+    title: "Authentication Required",
+    message: "Please authenticate to use this application.",
+    recoverySteps: ["Enter a valid license key", "Contact support if you need assistance"],
   },
 
   [ErrorCodes.PPRO_NOT_CONNECTED]: {
@@ -134,14 +141,14 @@ const ErrorDefinitions = {
   },
 
   [ErrorCodes.TRACK_NO_CLIPS]: {
-    severity: ErrorSeverity.LOW, // Warning - only matters if assigned
+    severity: ErrorSeverity.LOW,
     title: "Empty Track Warning",
     message: "Assigned track has no clips. Each assigned track needs exactly one clip.",
     recoverySteps: ["Add a clip to this track", "Assign camera to a different track that has clips"],
   },
 
   [ErrorCodes.TRACK_MULTIPLE_CLIPS]: {
-    severity: ErrorSeverity.LOW, // Warning - only matters if assigned
+    severity: ErrorSeverity.LOW,
     title: "Multiple Clips Warning",
     message: "Assigned track has multiple clips. Each track should have exactly one clip.",
     recoverySteps: [
@@ -152,14 +159,14 @@ const ErrorDefinitions = {
   },
 
   [ErrorCodes.TRACK_DUPLICATE_ASSIGNMENT]: {
-    severity: ErrorSeverity.MEDIUM, // Error - will cause problems
+    severity: ErrorSeverity.MEDIUM,
     title: "Duplicate Track Assignment",
     message: "Multiple cameras assigned to the same track.",
     recoverySteps: ["Assign each camera to a different track", "Add more tracks if needed: Sequence > Add Tracks"],
   },
 
   [ErrorCodes.TRACK_COUNT_MISMATCH]: {
-    severity: ErrorSeverity.LOW, // Warning - might cause issues
+    severity: ErrorSeverity.LOW,
     title: "Track Count Mismatch",
     message: "Different numbers of video and audio tracks detected.",
     recoverySteps: [
@@ -169,35 +176,35 @@ const ErrorDefinitions = {
   },
 
   [ErrorCodes.FORM_MISSING_SPEAKER_NAMES]: {
-    severity: ErrorSeverity.MEDIUM, // Error - required for functionality
+    severity: ErrorSeverity.MEDIUM,
     title: "Missing Speaker Names",
     message: "Please enter names for your speakers.",
     recoverySteps: ["Fill in speaker names in the Speaker Names section", "At least one speaker must have a name"],
   },
 
   [ErrorCodes.FORM_INVALID_CAMERA_ASSIGNMENT]: {
-    severity: ErrorSeverity.MEDIUM, // Error - required for functionality
+    severity: ErrorSeverity.MEDIUM,
     title: "Invalid Camera Assignment",
     message: "Please assign all cameras to speakers.",
     recoverySteps: ["Go to Camera Assignment section", "Assign each camera to a speaker"],
   },
 
   [ErrorCodes.FORM_INVALID_AUDIO_THRESHOLD]: {
-    severity: ErrorSeverity.LOW, // Warning - has default
+    severity: ErrorSeverity.LOW,
     title: "Invalid Audio Threshold",
     message: "Audio threshold format is incorrect.",
     recoverySteps: ["Use format: -30dB (negative number + 'dB')", "Try -30dB as a good starting point"],
   },
 
   [ErrorCodes.FORM_INVALID_CUT_DURATION]: {
-    severity: ErrorSeverity.LOW, // Warning - has limits
+    severity: ErrorSeverity.LOW,
     title: "Invalid Cut Duration",
     message: "Cut duration must be between 0.5 and 10 seconds.",
     recoverySteps: ["Enter a value between 0.5 and 10 seconds", "Try 1.5 seconds as a good starting point"],
   },
 
   [ErrorCodes.AUDIO_ANALYSIS_FAILED]: {
-    severity: ErrorSeverity.HIGH, // Error - blocks main functionality
+    severity: ErrorSeverity.HIGH,
     title: "Audio Analysis Failed",
     message: "Audio analysis encountered an error.",
     recoverySteps: [
@@ -211,21 +218,21 @@ const ErrorDefinitions = {
   },
 
   [ErrorCodes.AUDIO_FILE_NOT_FOUND]: {
-    severity: ErrorSeverity.HIGH, // Error - blocks functionality
+    severity: ErrorSeverity.HIGH,
     title: "Audio File Not Found",
     message: "Cannot access audio files from your tracks.",
     recoverySteps: ["Check if clips show as 'Media Offline'", "Relink missing media: Project > Link Media"],
   },
 
   [ErrorCodes.STORAGE_QUOTA_EXCEEDED]: {
-    severity: ErrorSeverity.LOW, // Warning - can work around
+    severity: ErrorSeverity.LOW,
     title: "Storage Limit Reached",
     message: "Cannot save settings due to storage limitations.",
     recoverySteps: ["Delete unused presets", "Clear browser cache"],
   },
 
   [ErrorCodes.STORAGE_CORRUPTED_DATA]: {
-    severity: ErrorSeverity.LOW, // Warning - auto-recoverable
+    severity: ErrorSeverity.LOW,
     title: "Corrupted Settings",
     message: "Settings data was corrupted and has been reset.",
     recoverySteps: ["Your settings have been reset to defaults", "Recreate any important presets"],
@@ -272,9 +279,6 @@ class TimbreErrorHandler {
     return container
   }
 
-  /**
-   * Main error handling method - prevents duplicate displays
-   */
   handleError(errorCode, context = {}, originalError = null) {
     const errorDef = ErrorDefinitions[errorCode]
 
@@ -282,12 +286,10 @@ class TimbreErrorHandler {
       return this.handleUnknownError(errorCode, context, originalError)
     }
 
-    // For track errors, only show if the track is actually assigned
     if (this.isTrackError(errorCode) && !this.isTrackAssigned(context)) {
-      return // Don't show error for unassigned tracks
+      return
     }
 
-    // Prevent duplicate error displays
     const errorKey = `${errorCode}_${JSON.stringify(context)}`
     if (this.activeErrors.has(errorKey)) {
       return
@@ -305,7 +307,6 @@ class TimbreErrorHandler {
 
     this.logError(errorEntry)
 
-    // Only show visual error for medium/high severity errors
     if (
       errorDef.severity === ErrorSeverity.MEDIUM ||
       errorDef.severity === ErrorSeverity.HIGH ||
@@ -315,12 +316,10 @@ class TimbreErrorHandler {
       this.activeErrors.add(errorKey)
     }
 
-    // Auto-dismiss warnings after 8 seconds
     if (errorDef.severity === ErrorSeverity.LOW) {
       setTimeout(() => this.dismissError(errorCode), 8000)
     }
 
-    // Attempt auto-recovery if enabled
     if (errorDef.autoRecovery) {
       this.attemptAutoRecovery(errorCode, errorDef, context)
     }
@@ -335,22 +334,17 @@ class TimbreErrorHandler {
   isTrackAssigned(context) {
     if (!context.trackNumber) return false
 
-    // Check if this track is assigned to any camera
     const trackNum = context.trackNumber
     const trackType = context.trackType
 
     if (typeof appState !== "undefined" && appState.formData) {
       const assignments = trackType === "video" ? appState.formData.trackNumbers : appState.formData.audioTrackNumbers
-
       return assignments && assignments.includes(trackNum)
     }
 
     return false
   }
 
-  /**
-   * Display error notification (compact list with hover details)
-   */
   displayError(errorDef, errorEntry) {
     if (!this.errorContainer) return
 
@@ -401,16 +395,12 @@ class TimbreErrorHandler {
     return icons[severity] || "⚠"
   }
 
-  /**
-   * Dismiss error notification
-   */
   dismissError(errorCode) {
     const errorElement = document.querySelector(`[data-error-code="${errorCode}"]`)
     if (errorElement) {
       errorElement.remove()
     }
 
-    // Remove from active errors
     for (const key of this.activeErrors) {
       if (key.startsWith(`${errorCode}_`)) {
         this.activeErrors.delete(key)
@@ -422,9 +412,6 @@ class TimbreErrorHandler {
     }
   }
 
-  /**
-   * Clear all errors
-   */
   clearAllErrors() {
     this.activeErrors.clear()
     if (this.errorContainer) {
@@ -437,11 +424,7 @@ class TimbreErrorHandler {
     }
   }
 
-  /**
-   * Show single toast (replaces any existing toast)
-   */
   showToast(message, type = "info") {
-    // Remove existing toast
     if (this.currentToast) {
       this.currentToast.remove()
     }
@@ -462,19 +445,19 @@ class TimbreErrorHandler {
     switch (type) {
       case "success":
         iconSvg =
-          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>'
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>'
         break
       case "error":
         iconSvg =
-          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>'
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>'
         break
       case "warning":
         iconSvg =
-          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
         break
       default:
         iconSvg =
-          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
     }
 
     toast.innerHTML = `
@@ -502,9 +485,6 @@ class TimbreErrorHandler {
     }, 5000)
   }
 
-  /**
-   * Retry action for specific error
-   */
   retryAction(errorCode) {
     this.dismissError(errorCode)
 
@@ -515,7 +495,6 @@ class TimbreErrorHandler {
         }
         break
       case ErrorCodes.AUTH_NETWORK_ERROR:
-        // Retry authentication if we have stored credentials
         break
       case ErrorCodes.AUDIO_ANALYSIS_FAILED:
         this.showToast("Please try the analysis again", "info")
@@ -525,9 +504,6 @@ class TimbreErrorHandler {
     }
   }
 
-  /**
-   * Show help for specific error
-   */
   showHelp(errorCode) {
     const errorDef = ErrorDefinitions[errorCode]
     if (errorDef && errorDef.recoverySteps) {
@@ -536,9 +512,6 @@ class TimbreErrorHandler {
     }
   }
 
-  /**
-   * Attempt automatic recovery
-   */
   async attemptAutoRecovery(errorCode, errorDef, context) {
     const retryKey = `${errorCode}_${JSON.stringify(context)}`
     const attempts = this.retryAttempts.get(retryKey) || 0
@@ -616,9 +589,6 @@ class TimbreErrorHandler {
     }
   }
 
-  /**
-   * Logging methods - use logToPanel instead of console
-   */
   logError(errorEntry) {
     this.addToLog("ERROR", errorEntry)
     if (typeof logToPanel === "function") {
@@ -690,7 +660,6 @@ window.addEventListener("unhandledrejection", (event) => {
   )
 })
 
-// Rest of your existing script.js code continues here...
 function onLoaded() {
   try {
     if (typeof CSInterface === "undefined") {
@@ -785,7 +754,7 @@ function logToPanel(message, type = "info") {
         formattedMessage = escapedMessage
     }
 
-    // csInterface.evalScript(`$._PPP_.updateEventPanel('${formattedMessage}')`)
+    csInterface.evalScript(`$._PPP_.updateEventPanel('${formattedMessage}')`)
   } catch (error) {
     try {
       const errorContainer = document.getElementById("globalErrorContainer")
@@ -854,12 +823,13 @@ const appState = {
     email: null,
     isAuthenticated: false,
     lastVerified: null,
-    verificationInterval: 30 * 24 * 60 * 60 * 1000,
+    verificationInterval: 24 * 60 * 60 * 1000, // 24 hours
     trialMode: false,
     trialExpiry: null,
     error: null,
     deviceId: null,
     userId: null,
+    isTrialRestricted: false,
   },
 }
 
@@ -924,37 +894,110 @@ function initializeElements() {
   elements.modalCloseBtn = document.getElementById("modalCloseBtn")
 }
 
-const DEVICE_PEPPER = "q8L@91$y:Bfp0w3vHs*N6cZr4eT2gKd";
+const DEVICE_PEPPER = "q8L@91$y:Bfp0w3vHs*N6cZr4eT2gKd"
 
-function _hex(buf) { return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join(""); }
-async function sha256Hex(s) { return _hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s))); }
+function _hex(buf) {
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("")
+}
+
+async function sha256Hex(s) {
+  return _hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))
+}
 
 async function getDeviceId() {
   try {
-    const cs = new CSInterface();
-
-    const fp = await new Promise(res =>
-      cs.evalScript('$._PPP_.getStableFingerprint()', res));
-
-    logToPanel("Fingerprint ➜ " + fp, "debug");
-
-    const id = (await sha256Hex(DEVICE_PEPPER + fp)).slice(0, 32);
-
-    logToPanel("Device-ID (derived) ➜ " + id, "info");
-    return id;
-
+    const cs = new CSInterface()
+    const fp = await new Promise((res) => cs.evalScript("$._PPP_.getStableFingerprint()", res))
+    logToPanel("Fingerprint ➜ " + fp, "debug")
+    const id = (await sha256Hex(DEVICE_PEPPER + fp)).slice(0, 32)
+    logToPanel("Device-ID (derived) ➜ " + id, "info")
+    return id
   } catch (err) {
-    logToPanel("getDeviceId ERROR: " + err.message, "error");
-    const tmp = crypto.randomUUID().replace(/-/g, "");
-    logToPanel("Tmp Device-ID ➜ " + tmp, "warn");
-    return tmp;
+    logToPanel("getDeviceId ERROR: " + err.message, "error")
+    const tmp = crypto.randomUUID().replace(/-/g, "")
+    logToPanel("Tmp Device-ID ➜ " + tmp, "warn")
+    return tmp
   }
 }
-
 
 // Global showToast function that uses the error handler
 function showToast(message, type = "info") {
   timbreErrorHandler.showToast(message, type)
+}
+
+// Authentication bypass detection
+function detectAuthBypass() {
+  const appContent = document.getElementById("appContent")
+  if (appContent && appContent.style.display !== "none" && !appState.authState.isAuthenticated) {
+    timbreErrorHandler.handleError(ErrorCodes.AUTH_BYPASS_ATTEMPT, {
+      operation: "bypass_detection",
+      timestamp: new Date().toISOString(),
+    })
+    hideApp()
+    showAuthModal()
+    return true
+  }
+  return false
+}
+
+// Set up periodic auth bypass detection
+setInterval(detectAuthBypass, 2000)
+
+// Disable form elements during processing
+function setProcessingState(isProcessing) {
+  appState.ui.isProcessing = isProcessing
+
+  const formElements = document.querySelectorAll(
+    "input, select, button:not(.error-dismiss):not(.error-retry):not(.error-help)",
+  )
+
+  formElements.forEach((element) => {
+    if (isProcessing) {
+      element.classList.add("processing-disabled")
+      element.disabled = true
+    } else {
+      element.classList.remove("processing-disabled")
+      element.disabled = false
+    }
+  })
+}
+
+// Progress button with percentage and rotating SVG
+function updateProgressButton(percentage = 0, text = "Processing...") {
+  if (!elements.createEditBtn) return
+
+  const isProcessing = percentage > 0 && percentage < 100
+
+  if (isProcessing) {
+    elements.createEditBtn.classList.add("btn-progress")
+    elements.createEditBtn.innerHTML = `
+      <div class="btn-progress-text">
+        <span class="btn-icon">
+          <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
+                     M16.24 16.24l2.83 2.83M2 12h4M18 12h4
+                     M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+        </span>
+        <span>${text}</span>
+        <span class="btn-progress-percentage">${percentage.toFixed(0)}%</span>
+      </div>
+    `
+  } else {
+    elements.createEditBtn.classList.remove("btn-progress")
+    elements.createEditBtn.innerHTML = `
+      <span class="btn-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
+                   M16.24 16.24l2.83 2.83M2 12h4M18 12h4
+                   M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+      </span>
+      Create Multi-Cam Edit
+    `
+  }
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -967,9 +1010,80 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const authState = appState.authState
-
     authState.deviceId = await getDeviceId()
     logToPanel(`device id: ${authState.deviceId}`, "info")
+
+    function _getCountsKey() {
+      return `timbreEdits_${appState.authState.userId || "trial"}`
+    }
+
+    function loadEditCounts() {
+      const raw = localStorage.getItem(_getCountsKey())
+      const today = new Date().toISOString().slice(0, 10)
+      const counts = { total: 0, daily: { date: today, count: 0 } }
+
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw)
+          if (parsed.daily && parsed.daily.date === today) {
+            counts.daily.count = parsed.daily.count
+          }
+          counts.total = parsed.total || 0
+        } catch (e) {
+          /* ignore */
+        }
+      }
+
+      return counts
+    }
+
+    function saveEditCounts(counts) {
+      localStorage.setItem(_getCountsKey(), JSON.stringify(counts))
+    }
+
+    function canCreateEdit() {
+      // No restrictions for full license users
+      if (appState.authState.isAuthenticated && !appState.authState.trialMode) {
+        return true
+      }
+
+      // Trial restrictions
+      if (appState.authState.trialMode || appState.authState.isTrialRestricted) {
+        const counts = loadEditCounts()
+        const today = new Date().toISOString().slice(0, 10)
+
+        if (counts.daily.date !== today) {
+          counts.daily = { date: today, count: 0 }
+        }
+
+        if (counts.daily.count >= 2) {
+          showToast("Trial users can only create 2 edits per day.", "error")
+          return false
+        }
+        if (counts.total >= 6) {
+          showToast("Trial limit reached: 6 total edits maximum.", "error")
+          return false
+        }
+      }
+
+      return true
+    }
+
+    function recordEdit() {
+      // Only record for trial users
+      if (appState.authState.trialMode || appState.authState.isTrialRestricted) {
+        const counts = loadEditCounts()
+        const today = new Date().toISOString().slice(0, 10)
+
+        if (counts.daily.date !== today) {
+          counts.daily = { date: today, count: 0 }
+        }
+        counts.daily.count += 1
+        counts.total += 1
+        saveEditCounts(counts)
+        showToast(`Edit recorded (${counts.daily.count}/2 today, ${counts.total}/6 total)`, "info")
+      }
+    }
 
     function loadApiKey() {
       try {
@@ -983,6 +1097,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           authState.trialMode = p.trialMode || false
           authState.trialExpiry = p.trialExpiry ? new Date(p.trialExpiry) : null
           authState.userId = p.userId || null
+          authState.isTrialRestricted = p.isTrialRestricted || false
           timbreErrorHandler.logInfo("Auth state loaded from storage")
           return true
         }
@@ -1005,6 +1120,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             trialMode: authState.trialMode,
             trialExpiry: authState.trialExpiry ? authState.trialExpiry.toISOString() : null,
             userId: authState.userId,
+            isTrialRestricted: authState.isTrialRestricted,
           }),
         )
         timbreErrorHandler.logInfo("Auth state saved to storage")
@@ -1022,6 +1138,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         authState.trialMode =
         authState.trialExpiry =
         authState.error =
+        authState.isTrialRestricted =
         null
       try {
         localStorage.removeItem("timbreLicense")
@@ -1040,7 +1157,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           return false
         }
 
-        // Fix: Add error handling for network requests
         try {
           const resp = await fetch("https://api.timbrehq.com/api/v1/pro/verify", {
             method: "POST",
@@ -1052,11 +1168,25 @@ document.addEventListener("DOMContentLoaded", async () => {
 
           if (resp.ok && json.userVerified) {
             authState.apiKey = key
+            authState.email = email
             authState.userId = json.userId
             authState.isAuthenticated = true
             authState.lastVerified = new Date()
             authState.error = null
-            authState.email = email
+
+            if (json.trialMode) {
+              authState.trialMode = true
+              authState.isTrialRestricted = true
+              authState.trialExpiry = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+              showTrialBanner()
+              showToast("Trial access granted (14 days, 6 edits max)", "success")
+            } else {
+              authState.trialMode = false
+              authState.isTrialRestricted = false
+              authState.trialExpiry = null
+              showToast("Full license activated!", "success")
+            }
+
             saveApiKey()
             timbreErrorHandler.logInfo("License verified successfully")
             return true
@@ -1076,7 +1206,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             return false
           }
         } catch (networkErr) {
-          // Handle network errors specifically
           timbreErrorHandler.handleError(
             ErrorCodes.AUTH_NETWORK_ERROR,
             {
@@ -1106,15 +1235,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       return Date.now() - authState.lastVerified.getTime() > authState.verificationInterval
     }
 
-    function startTrial() {
-      authState.trialMode = true
-      authState.trialExpiry = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-      authState.isAuthenticated = true
-      authState.lastVerified = new Date()
-      saveApiKey()
-      timbreErrorHandler.logInfo("Trial started: 14 days remaining")
-    }
-
     function isTrialValid() {
       return authState.trialMode && authState.trialExpiry && Date.now() < authState.trialExpiry.getTime()
     }
@@ -1126,7 +1246,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function showTrialBanner() {
-      if (!isTrialValid()) return
+      if (!authState.trialMode && !authState.isTrialRestricted) return
+      if (!authState.trialExpiry) return
+
       const days = getTrialDaysRemaining()
       let banner = document.getElementById("trialBanner")
       if (!banner) {
@@ -1143,7 +1265,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                       <line x1="12" y1="8" x2="12" y2="12"></line>
                       <line x1="12" y1="16" x2="12.01" y2="16"></line>
                   </svg>
-                  <span>Trial: ${days} days remaining</span>
+                  <span>Trial: ${days} days remaining (6 edits max)</span>
               </div>
               <a href="https://timbrehq.com/" target="_blank" class="trial-banner-btn">
                   Purchase License
@@ -1152,7 +1274,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         container.appendChild(banner)
       } else {
         const span = banner.querySelector("span")
-        if (span) span.textContent = `Trial: ${days} days remaining`
+        if (span) span.textContent = `Trial: ${days} days remaining (6 edits max)`
       }
     }
 
@@ -1185,33 +1307,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function checkAuthStatus() {
       const loaded = loadApiKey()
-      if (!loaded || !authState.isAuthenticated || needsVerification()) {
-        if (authState.trialMode && isTrialValid()) {
-          showTrialBanner()
-          return true
-        }
-        if (authState.trialMode && !isTrialValid()) {
-          timbreErrorHandler.handleError(ErrorCodes.AUTH_EXPIRED_TRIAL)
-          return false
-        }
+
+      if (!loaded || !authState.isAuthenticated) {
         return false
       }
-      if (authState.trialMode && isTrialValid()) showTrialBanner()
+
+      // Check if trial has expired
+      if (authState.trialMode && !isTrialValid()) {
+        timbreErrorHandler.handleError(ErrorCodes.AUTH_EXPIRED_TRIAL)
+        clearAuthState()
+        return false
+      }
+
+      if (needsVerification()) {
+        authState.lastVerified = new Date()
+        saveApiKey()
+      }
+
+      if (authState.trialMode || authState.isTrialRestricted) {
+        showTrialBanner()
+      }
+
       return true
     }
 
     function setupAuthModalEvents() {
-      document.querySelectorAll(".auth-tab-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          document.querySelectorAll(".auth-tab-btn").forEach((b) => b.classList.remove("active"))
-          document.querySelectorAll(".auth-tab-content").forEach((c) => c.classList.remove("active"))
-          btn.classList.add("active")
-          const tabId = btn.dataset.tab + "-tab"
-          const tabElement = document.getElementById(tabId)
-          if (tabElement) tabElement.classList.add("active")
-        })
-      })
-
       const verifyBtn = document.getElementById("verifyKeyBtn")
       if (verifyBtn) {
         verifyBtn.addEventListener("click", async () => {
@@ -1253,24 +1373,12 @@ document.addEventListener("DOMContentLoaded", async () => {
           verifyBtn.textContent = "Activate License"
 
           if (ok) {
-            showToast("License activated!", "success")
             showApp()
             return
           } else {
             authError.textContent = authState.error || "Invalid license key"
             return
           }
-        })
-      }
-
-      const startTrialBtn = document.getElementById("startTrialBtn")
-      if (startTrialBtn) {
-        startTrialBtn.addEventListener("click", () => {
-          startTrial()
-          showApp()
-          showTrialBanner()
-          showToast("Trial started (14 days)", "success")
-          return
         })
       }
     }
@@ -1306,7 +1414,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (savedPresets) {
           const parsed = JSON.parse(savedPresets)
 
-          // Validate preset structure
           if (!Array.isArray(parsed)) {
             throw new Error("Invalid preset data structure")
           }
@@ -1331,7 +1438,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         const data = JSON.stringify(appState.presets)
 
         if (data.length > 5000000) {
-          // ~5MB limit
           timbreErrorHandler.handleError(ErrorCodes.STORAGE_QUOTA_EXCEEDED, {
             dataSize: data.length,
             presetsCount: appState.presets.length,
@@ -1411,17 +1517,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     function requestTrackInfo() {
       timbreErrorHandler.logInfo("Requesting track information from Premiere Pro...")
 
-      if (elements.createEditBtn) {
-        elements.createEditBtn.disabled = true
-        elements.createEditBtn.innerHTML = `
-          <span class="btn-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
-            </svg>
-          </span>
-          Loading Tracks...
-        `
-      }
+      updateProgressButton(10, "Loading Tracks...")
+      setProcessingState(true)
 
       if (elements.trackMapping) {
         elements.trackMapping.innerHTML = `
@@ -1436,17 +1533,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       checkTrackInfo((trackInfo) => {
-        if (elements.createEditBtn) {
-          elements.createEditBtn.disabled = false
-          elements.createEditBtn.innerHTML = `
-            <span class="btn-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
-              </svg>
-            </span>
-            Create Multi-Cam Edit
-          `
-        }
+        updateProgressButton(0)
+        setProcessingState(false)
 
         appState.ui.tracksLoaded = true
         updateTrackMappingUI()
@@ -1561,6 +1649,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function handleResetForm() {
+      if (detectAuthBypass()) return
+
       timbreErrorHandler.logInfo("Resetting form")
 
       if (appState.ui.isDirty) {
@@ -1569,7 +1659,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       }
 
-      // Clear all errors first
       timbreErrorHandler.clearAllErrors()
 
       appState.formData = {
@@ -1631,6 +1720,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function openPresetModal() {
+      if (detectAuthBypass()) return
+
       if (!validateForm()) {
         showToast("Please fix the errors before saving a preset", "error")
         timbreErrorHandler.logWarning("Cannot open preset modal due to validation errors")
@@ -1671,6 +1762,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function handleSavePreset() {
+      if (detectAuthBypass()) return
+
       if (!elements.presetName) return
 
       const presetName = elements.presetName.value.trim()
@@ -1778,6 +1871,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function updateFormState(field) {
+      if (detectAuthBypass()) return
+
       const element = elements[field]
 
       if (element) {
@@ -1799,6 +1894,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function handleSpeakerChange() {
+      if (detectAuthBypass()) return
+
       if (!elements.numSpeakers) return
 
       const speakerCount = Number.parseInt(elements.numSpeakers.value, 10)
@@ -1810,6 +1907,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function handleCameraChange() {
+      if (detectAuthBypass()) return
+
       if (!elements.numCameras) return
 
       const cameraCount = Number.parseInt(elements.numCameras.value, 10)
@@ -1841,10 +1940,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         input.type = "text"
         input.className = "form-input"
         input.id = `speakerName${i}`
-        input.placeholder = `Enter name for Speaker ${i + 1}`
+        input.placeholder = `Speaker ${i + 1}`
         input.value = appState.formData.speakerNames[i] || ""
 
         input.addEventListener("input", (e) => {
+          if (detectAuthBypass()) {
+            e.target.value = appState.formData.speakerNames[i] || ""
+            return
+          }
+
           appState.formData.speakerNames[i] = e.target.value
           updateTrackMappingUI()
           clearError(`speakerName${i}`)
@@ -1887,7 +1991,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         return
       }
 
-      // Fix: Initialize arrays properly
       if (!appState.formData.trackMapping || appState.formData.trackMapping.length !== cameraCount) {
         appState.formData.trackMapping = Array(cameraCount).fill("")
       }
@@ -1920,7 +2023,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         speakerWrapper.className = "select-wrapper"
 
         const speakerSelect = document.createElement("select")
-        speakerSelect.className = "form-select"
+        speakerSelect.className = "form-select form-select"
         speakerSelect.id = `camera${i}Select`
 
         const noneOption = document.createElement("option")
@@ -1943,6 +2046,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         speakerSelect.addEventListener("change", (e) => {
+          if (detectAuthBypass()) {
+            e.target.value = appState.formData.trackMapping[i] || ""
+            return
+          }
+
           appState.formData.trackMapping[i] = e.target.value
           clearError(`camera${i}Select`)
           appState.ui.isDirty = true
@@ -2010,6 +2118,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         videoTrackSelect.value = appState.formData.trackNumbers[i].toString()
 
         videoTrackSelect.addEventListener("change", (e) => {
+          if (detectAuthBypass()) {
+            e.target.value = appState.formData.trackNumbers[i].toString()
+            return
+          }
+
           appState.formData.trackNumbers[i] = Number.parseInt(e.target.value, 10)
           appState.ui.isDirty = true
           timbreErrorHandler.logInfo(`Camera ${i + 1} video track set to: ${e.target.value}`)
@@ -2063,6 +2176,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         audioTrackSelect.value = appState.formData.audioTrackNumbers[i].toString()
 
         audioTrackSelect.addEventListener("change", (e) => {
+          if (detectAuthBypass()) {
+            e.target.value = appState.formData.audioTrackNumbers[i].toString()
+            return
+          }
+
           appState.formData.audioTrackNumbers[i] = Number.parseInt(e.target.value, 10)
           appState.ui.isDirty = true
           timbreErrorHandler.logInfo(`Camera ${i + 1} audio track set to: ${e.target.value}`)
@@ -2083,6 +2201,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function setupAdvancedSettings() {
+      initializeElements()
       timbreErrorHandler.logInfo("Setting up advanced settings")
 
       if (!elements.advancedSection || !elements.collapseBtn) return
@@ -2101,12 +2220,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             </div>
 
             <div class="form-group">
-              <label for="minCutDuration">Minimum Cut Duration (sec)</label>
+              <label for="minCutDuration">Min Cut Duration (sec)</label>
               <input type="number" id="minCutDuration" class="form-input" value="${appState.formData.minCutDuration || 1.5}" min="0.5" max="10" step="0.5">
               <div class="form-error" id="minCutDurationError"></div>
             </div>
 
-            <div class="form-group" style="display: none">
+            <div class="form-group">
               <label for="transitionType">Transition Type</label>
               <div class="select-wrapper">
                 <select id="transitionType" class="form-select">
@@ -2159,10 +2278,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       appState.ui.errors = {}
       appState.ui.globalError = null
 
-      // Clear previous error displays
       timbreErrorHandler.clearAllErrors()
 
-      // Validate speaker names
       let hasNamedSpeaker = false
       for (let i = 0; i < appState.formData.numSpeakers; i++) {
         if (appState.formData.speakerNames[i] && appState.formData.speakerNames[i].trim() !== "") {
@@ -2178,7 +2295,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         isValid = false
       }
 
-      // Validate camera assignments
       const assignedSpeakers = new Set()
       const duplicateAssignments = []
 
@@ -2193,7 +2309,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           assignedSpeakers.add(appState.formData.trackMapping[i])
         }
 
-        // Check for duplicate track assignments
         const videoTrack = appState.formData.trackNumbers[i]
         const audioTrack = appState.formData.audioTrackNumbers[i]
 
@@ -2214,7 +2329,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         isValid = false
       }
 
-      // Validate audio threshold format
       const audioThreshold = appState.formData.audioThreshold
       if (audioThreshold && !audioThreshold.match(/^-?\d+(\.\d+)?dB$/)) {
         timbreErrorHandler.handleError(ErrorCodes.FORM_INVALID_AUDIO_THRESHOLD, {
@@ -2223,7 +2337,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         isValid = false
       }
 
-      // Validate cut duration
       const cutDuration = appState.formData.minCutDuration
       if (cutDuration < 0.5 || cutDuration > 10) {
         timbreErrorHandler.handleError(ErrorCodes.FORM_INVALID_CUT_DURATION, {
@@ -2236,7 +2349,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         timbreErrorHandler.logInfo("Form validation passed")
       } else {
         timbreErrorHandler.logWarning("Form validation failed")
-        // Show single toast for validation failure instead of multiple errors
         showToast("Please fix the errors before creating the edit", "error")
       }
 
@@ -2338,11 +2450,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             appState.trackInfo.audioTracks = audioTracks
             appState.trackInfo.audioTracksCount = audioTracks.length
 
-            // Only show track warnings for assigned tracks
             appState.trackInfo.audioTrackStatus = audioTracks.map((path, index) => {
               const trackNumber = index + 1
               if (path === "") {
-                // Only show warning if this track is assigned
                 if (appState.formData.audioTrackNumbers && appState.formData.audioTrackNumbers.includes(trackNumber)) {
                   timbreErrorHandler.handleError(ErrorCodes.TRACK_NO_CLIPS, {
                     trackType: "audio",
@@ -2352,7 +2462,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return 0
               }
               if (path.includes("Error: Multiple clips")) {
-                // Only show warning if this track is assigned
                 if (appState.formData.audioTrackNumbers && appState.formData.audioTrackNumbers.includes(trackNumber)) {
                   timbreErrorHandler.handleError(ErrorCodes.TRACK_MULTIPLE_CLIPS, {
                     trackType: "audio",
@@ -2382,11 +2491,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 appState.trackInfo.videoTracks = videoTracks
                 appState.trackInfo.videoTracksCount = videoTracks.length
 
-                // Only show track warnings for assigned tracks
                 appState.trackInfo.videoTrackStatus = videoTracks.map((path, index) => {
                   const trackNumber = index + 1
                   if (path === "") {
-                    // Only show warning if this track is assigned
                     if (appState.formData.trackNumbers && appState.formData.trackNumbers.includes(trackNumber)) {
                       timbreErrorHandler.handleError(ErrorCodes.TRACK_NO_CLIPS, {
                         trackType: "video",
@@ -2396,7 +2503,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                     return 0
                   }
                   if (path.includes("Error: Multiple clips")) {
-                    // Only show warning if this track is assigned
                     if (appState.formData.trackNumbers && appState.formData.trackNumbers.includes(trackNumber)) {
                       timbreErrorHandler.handleError(ErrorCodes.TRACK_MULTIPLE_CLIPS, {
                         trackType: "video",
@@ -2451,6 +2557,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     async function handleCreateEdit() {
+      if (detectAuthBypass()) return
+
+      if (!canCreateEdit()) {
+        return
+      }
+
       if (appState.ui.isProcessing) {
         timbreErrorHandler.logWarning("Create edit button clicked while already processing")
         return
@@ -2458,51 +2570,29 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       timbreErrorHandler.logInfo("Create edit button clicked")
 
-      appState.ui.isProcessing = true
-      if (elements.createEditBtn) {
-        elements.createEditBtn.disabled = true
-        elements.createEditBtn.innerHTML = `
-          <span class="btn-icon">
-            <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
-                       M16.24 16.24l2.83 2.83M2 12h4M18 12h4
-                       M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-            </svg>
-          </span>
-          Checking tracks...
-        `
-      }
+      setProcessingState(true)
+      updateProgressButton(5, "Checking tracks...")
 
       try {
         await new Promise((resolve) => checkTrackInfo(resolve))
         timbreErrorHandler.logInfo("Track check complete, validating form")
+        updateProgressButton(15, "Validating form...")
       } catch (e) {
         timbreErrorHandler.handleError(ErrorCodes.PPRO_TRACK_ACCESS_ERROR, { operation: "handleCreateEdit" }, e)
-        resetCreateButton()
+        updateProgressButton(0)
+        setProcessingState(false)
         return
       }
 
       if (!validateForm()) {
         timbreErrorHandler.logWarning("Form validation failed, edit creation aborted")
         scrollToFirstErrorField()
-        resetCreateButton()
+        updateProgressButton(0)
+        setProcessingState(false)
         return
       }
 
-      if (elements.createEditBtn) {
-        elements.createEditBtn.innerHTML = `
-          <span class="btn-icon">
-            <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
-                       M16.24 16.24l2.83 2.83M2 12h4M18 12h4
-                       M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-            </svg>
-          </span>
-          Creating clone...
-        `
-      }
+      updateProgressButton(25, "Creating clone...")
 
       try {
         if (typeof CSInterface === "undefined") {
@@ -2513,19 +2603,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         csInterface.evalScript("$._PPP_.createClone()")
         timbreErrorHandler.logInfo("Created clone")
 
-        if (elements.createEditBtn) {
-          elements.createEditBtn.innerHTML = `
-            <span class="btn-icon">
-              <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
-                         M16.24 16.24l2.83 2.83M2 12h4M18 12h4
-                         M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-              </svg>
-            </span>
-            Processing Data...
-          `
-        }
+        updateProgressButton(35, "Processing data...")
 
         const editData = {
           cuttingMethod: appState.formData.cuttingMethod,
@@ -2583,20 +2661,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         showToast("Running audio analysis on all tracks…", "info")
         timbreErrorHandler.logInfo(`Invoking analysis with ${args.length} arguments`)
 
-        if (elements.createEditBtn) {
-          elements.createEditBtn.innerHTML = `
-          <span class="btn-icon">
-            <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
-                       M16.24 16.24l2.83 2.83M2 12h4M18 12h4
-                       M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-            </svg>
-          </span>
-          Running analysis on all tracks...
-          `
-        }
+        updateProgressButton(50, "Running analysis...")
 
-        const stdout = await runAudioAnalysis(args)
+        const stdout = await runAudioAnalysis(args, (progress) => {
+          updateProgressButton(50 + progress * 0.4, "Analyzing audio...")
+        })
+
         const { timeline, err } = JSON.parse(stdout)
 
         if (err) {
@@ -2607,19 +2677,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           throw new Error("Timeline not found in analysis output")
         }
 
-        if (elements.createEditBtn) {
-          elements.createEditBtn.innerHTML = `
-            <span class="btn-icon">
-              <svg class="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
-                        M16.24 16.24l2.83 2.83M2 12h4M18 12h4
-                        M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-              </svg>
-            </span>
-            Applying cuts to timeline...
-          `
-        }
+        updateProgressButton(95, "Applying cuts...")
 
         await new Promise((resolve) => {
           csInterface.evalScript(`$._PPP_.processTimeline(${JSON.stringify(timeline)});`, () => {
@@ -2629,8 +2687,14 @@ document.addEventListener("DOMContentLoaded", async () => {
           })
         })
 
+        updateProgressButton(100, "Complete!")
         showToast("All done!", "success")
+        recordEdit()
         timbreErrorHandler.logInfo("Completed multi-camera audio analysis and edit")
+
+        setTimeout(() => {
+          updateProgressButton(0)
+        }, 2000)
       } catch (err) {
         timbreErrorHandler.handleError(
           ErrorCodes.AUDIO_ANALYSIS_FAILED,
@@ -2641,28 +2705,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           err,
         )
         showToast(`Error during analysis: ${err}`, "error")
+        updateProgressButton(0)
       } finally {
-        resetCreateButton()
+        setProcessingState(false)
         appState.ui.isDirty = false
-        appState.ui.isProcessing = false
-      }
-    }
-
-    function resetCreateButton() {
-      if (elements.createEditBtn) {
-        appState.ui.isProcessing = false
-        elements.createEditBtn.disabled = false
-        elements.createEditBtn.innerHTML = `
-          <span class="btn-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83
-                       M16.24 16.24l2.83 2.83M2 12h4M18 12h4
-                       M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-            </svg>
-          </span>
-          Create Multi-Cam Edit
-        `
       }
     }
 
@@ -2675,6 +2721,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function handlePresetSelect() {
+      if (detectAuthBypass()) return
+
       if (!elements.presetSelect) return
 
       const selectedIndex = elements.presetSelect.value
@@ -2714,6 +2762,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function updateCurrentPreset() {
+      if (detectAuthBypass()) return
+
       if (appState.currentPresetIndex === null) {
         openPresetModal()
         return
@@ -2800,7 +2850,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       button.appendChild(circle)
     }
 
-    async function runAudioAnalysis(cliArgs) {
+    async function runAudioAnalysis(cliArgs, progressCallback) {
       return new Promise((resolve, reject) => {
         try {
           timbreErrorHandler.logInfo("Starting audio analysis", { argsCount: cliArgs.length })
@@ -2822,7 +2872,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             return reject(new Error("Insufficient arguments for audio analysis"))
           }
 
-          // Validate audio files exist
           const audioFiles = cliArgs.filter((arg, index) => index % 3 === 0 && index < cliArgs.length - 3)
           for (const file of audioFiles) {
             if (!file || file.includes("Error")) {
@@ -2837,7 +2886,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
           timbreErrorHandler.logInfo(`Running: ${exePath} ${safeArgs.join(" ")}`)
 
-          // Fix: Check for CEP process API availability
           if (!window.cep || !window.cep.process) {
             throw new Error("CEP process API not available")
           }
@@ -2852,7 +2900,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
           const pid = startRes.data
 
-          // Capture both streams
           let stdoutData = ""
           let stderrData = ""
           window.cep.process.stdout(pid, (chunk) => {
@@ -2862,19 +2909,24 @@ document.addEventListener("DOMContentLoaded", async () => {
             stderrData += chunk
           })
 
-          // Poll until it exits with timeout
           let pollCount = 0
-          const maxPolls = 240 // 2 minutes timeout
+          // const maxPolls = 240
           const poll = setInterval(() => {
             pollCount++
-            if (pollCount > maxPolls) {
-              clearInterval(poll)
-              timbreErrorHandler.handleError(ErrorCodes.AUDIO_PROCESSING_TIMEOUT, {
-                reason: "timeout",
-                duration: maxPolls * 500,
-              })
-              return reject(new Error("Audio analysis timeout"))
-            }
+
+            // if (progressCallback) {
+            //   const progress = Math.min(pollCount / maxPolls, 1)
+            //   progressCallback(progress)
+            // }
+
+            // if (pollCount > maxPolls) {
+            //   clearInterval(poll)
+            //   timbreErrorHandler.handleError(ErrorCodes.AUDIO_PROCESSING_TIMEOUT, {
+            //     reason: "timeout",
+            //     duration: maxPolls * 500,
+            //   })
+            //   return reject(new Error("Audio analysis timeout"))
+            // }
 
             const stat = window.cep.process.isRunning(pid)
             if (stat.err !== 0) {
@@ -2887,7 +2939,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             if (!stat.data) {
               clearInterval(poll)
-              // If any stderr output, treat as error
               if (stderrData.trim()) {
                 timbreErrorHandler.handleError(ErrorCodes.AUDIO_ANALYSIS_FAILED, {
                   reason: "stderr_output",
@@ -2895,7 +2946,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 })
                 return reject({ err: stderrData.trim() })
               }
-              // Else return stdout (must be JSON)
               if (!stdoutData.trim()) {
                 timbreErrorHandler.handleError(ErrorCodes.AUDIO_ANALYSIS_FAILED, {
                   reason: "no_output",
@@ -2926,6 +2976,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     authSetup()
 
     document.getElementById("reloadTracks").addEventListener("click", () => {
+      if (detectAuthBypass()) return
       requestTrackInfo()
     })
   } catch (error) {
