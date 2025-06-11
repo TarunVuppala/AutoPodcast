@@ -2924,6 +2924,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Initialize authentication
     authSetup()
+
+    document.getElementById("reloadTracks").addEventListener("click", () => {
+      requestTrackInfo()
+    })
   } catch (error) {
     timbreErrorHandler.handleError(
       ErrorCodes.SYSTEM_UNKNOWN_ERROR,

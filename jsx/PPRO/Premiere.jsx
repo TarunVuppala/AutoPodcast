@@ -2,6 +2,7 @@ $._PPP_ = {
 	updateEventPanel: function (message, type) {
 		app.setSDKEventMessage(message, type || "info");
 	},
+
 	getStableFingerprint: function () {
 		if (typeof system === "undefined") {
 			try { system = new ExternalObject("shell"); }
@@ -30,21 +31,12 @@ $._PPP_ = {
 	},
 
 	keepPanelLoaded: function () {
-		//add name here
-		app.setExtensionPersistent("com.adobe.PProPanel", 0); // 0, while testing (to enable rapid reload); 1 for "Never unload me, even when not visible."
+		app.setExtensionPersistent("com.unity.timbre.multi_camera_editor.dev", 0); // 0, while testing (to enable rapid reload); 1 for "Never unload me, even when not visible."
 	},
 
 	disableImportWorkspaceWithProjects: function () {
 		var prefToModify = 'FE.Prefs.ImportWorkspace';
-		var propertyExists = app.properties.doesPropertyExist(prefToModify);
-		var propertyIsReadOnly = app.properties.isPropertyReadOnly(prefToModify);
-		var propertyValue = app.properties.getProperty(prefToModify);
-
 		app.properties.setProperty(prefToModify, "0", 1, false);
-		var safetyCheck = app.properties.getProperty(prefToModify);
-		if (safetyCheck != propertyValue) {
-			$._PPP_.updateEventPanel("Changed \'Import Workspaces with Projects\' from " + propertyValue + " to " + safetyCheck + ".");
-		}
 	},
 
 	closeLog: function () {
@@ -54,15 +46,13 @@ $._PPP_ = {
 
 	confirmPProHostVersion: function () {
 		var version = parseFloat(app.version);
-		if (version < 14.0) {
-			$._PPP_.updateEventPanel("Note: PProPanel relies on features added in 14.0, but is currently running in " + version + ".");
-		}
 		return version;
 	},
+
 	setLocale: function (localeFromCEP) {
 		$.locale = localeFromCEP;
-		$._PPP_.updateEventPanel("ExtendScript Locale set to " + localeFromCEP + ".");
 	},
+
 	getAudioTrackClipItemsPath: function () {
 		try {
 			var seq = app.project.activeSequence;
@@ -120,6 +110,7 @@ $._PPP_ = {
 			return videoTrackItems;
 		} catch (e) {
 			$._PPP_.updateEventPanel(e.toString());
+
 			return [];
 		}
 	},
@@ -168,17 +159,13 @@ $._PPP_ = {
 					track.clips[0].remove(true, true);
 				}
 			}
-			// $._PPP_.saveProject();
-
 			for (var idx = 0; idx < tl.length; idx++) {
 				var e = tl[idx];
 				var vTrack = seq.videoTracks[e.videoTrack - 1];
 				var aTrack = seq.audioTracks[e.audioTrack - 1];
 				var projItem = projItems[e.videoTrack];
-				if (!projItem) {
-					$._PPP_.updateEventPanel("Skipping entry " + idx + ": no source item for track " + e.videoTrack);
+				if (!projItem)
 					continue;
-				}
 
 				var inTime = new Time(); inTime.seconds = e.start;
 				var outTime = new Time(); outTime.seconds = e.end;
@@ -189,22 +176,6 @@ $._PPP_ = {
 				var subItem = projItem.createSubClip(name, inTime, outTime, 1);
 
 				seq.insertClip(subItem, inTime, e.videoTrack - 1, e.audioTrack - 1);
-
-				var clip = vTrack.clips[vTrack.clips.numItems - 1];
-
-				// if (e.type === "fadeOut") {
-				// 	clip.addVideoTransition("Cross Dissolve", FADE_DURATION);
-				// 	clip.addAudioTransition("Constant Power", FADE_DURATION);
-				// }
-				// else if (e.type === "fadeIn") {
-				// 	clip.addVideoTransition("Cross Dissolve", FADE_DURATION);
-				// 	clip.addAudioTransition("Constant Power", FADE_DURATION);
-				// }
-				// type==="keep": no transition
-
-				$._PPP_.updateEventPanel(
-					"Inserted " + name + " (" + e.type + ") at " + e.start.toFixed(2) + "s"
-				);
 			}
 
 			$._PPP_.saveProject();
@@ -212,18 +183,16 @@ $._PPP_ = {
 		}
 		catch (err) {
 			$._PPP_.updateEventPanel("Error in processTimeline: " + err.toString());
+			throw err;
 		}
 	},
-	
+
 	forceLogfilesOn: function () {
 		app.enableQE();
 		var previousLogFilesValue = qe.getDebugDatabaseEntry("CreateLogFilesThatDoNotExist");
 
-		if (previousLogFilesValue === 'true') {
-			$._PPP_.updateEventPanel("Force create Log files was already ON.");
-		} else {
+		if (previousLogFilesValue !== 'true') {
 			qe.setDebugDatabaseEntry("CreateLogFilesThatDoNotExist", "true");
-			$._PPP_.updateEventPanel("Set Force create Log files to ON.");
 		}
 	},
 }
