@@ -178,7 +178,7 @@ $._PPP_ = {
 				seq.insertClip(subItem, inTime, e.videoTrack - 1, e.audioTrack - 1);
 			}
 
-			$._PPP_.saveProject();
+			app.project.save();
 			$._PPP_.updateEventPanel("Timeline processing complete: " + tl.length + " entries applied");
 		}
 		catch (err) {
