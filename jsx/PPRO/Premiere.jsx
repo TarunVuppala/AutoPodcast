@@ -133,6 +133,13 @@ $._PPP_ = {
 				return;
 			}
 
+			var root = app.project.rootItem;
+			var seqBin = root.createBin(seq.name);
+
+			$._PPP_.createClone();
+			seq = app.project.activeSequence;
+
+
 			var usedV = {}, usedA = {}, projItems = {};
 			for (var i = 0; i < tl.length; i++) {
 				var e = tl[i];
@@ -179,6 +186,7 @@ $._PPP_ = {
 					e.e.toFixed(2);
 
 				var subItem = projItem.createSubClip(name, inTime, outTime, 1);
+				subItem.moveBin(seqBin);
 				seq.insertClip(subItem, inTime, e.v - 1, e.a - 1);
 			}
 

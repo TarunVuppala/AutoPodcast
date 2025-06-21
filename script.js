@@ -3013,18 +3013,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return
             }
 
-            updateProgressButton(25, "Creating clone...")
-
             try {
                 if (typeof CSInterface === "undefined") {
                     throw new Error("CSInterface not available")
                 }
 
                 const csInterface = new CSInterface()
-                csInterface.evalScript("$._PPP_.createClone()")
-                timbreErrorHandler.logInfo("Created clone")
 
-                updateProgressButton(35, "Processing data...")
+                updateProgressButton(30, "Processing data...")
 
                 // Prepare edit data
                 const editData = {
@@ -3086,7 +3082,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     showToast("Running audio analysis...", "info");
                     timbreErrorHandler.logInfo(`Invoking analysis with ${args.length} arguments`)
 
-                    updateProgressButton(50, "Running analysis...");
+                    updateProgressButton(45, "Running analysis...");
 
                     const analysisResult = await runAudioAnalysis(args);
                     const timeline = analysisResult.timeline;
