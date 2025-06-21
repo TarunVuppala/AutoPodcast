@@ -858,6 +858,30 @@ function logToPanel(message, type = "info") {
     }
 }
 
+const Base64 = {
+    _keyStr: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
+    decode: function (input) {
+        let output = "";
+        let chr1, chr2, chr3;
+        let enc1, enc2, enc3, enc4;
+        let i = 0;
+        input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+        while (i < input.length) {
+            enc1 = this._keyStr.indexOf(input.charAt(i++));
+            enc2 = this._keyStr.indexOf(input.charAt(i++));
+            enc3 = this._keyStr.indexOf(input.charAt(i++));
+            enc4 = this._keyStr.indexOf(input.charAt(i++));
+            chr1 = (enc1 << 2) | (enc2 >> 4);
+            chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+            chr3 = ((enc3 & 3) << 6) | enc4;
+            output += String.fromCharCode(chr1);
+            if (enc3 !== 64) output += String.fromCharCode(chr2);
+            if (enc4 !== 64) output += String.fromCharCode(chr3);
+        }
+        return output;
+    }
+};
+
 /**
  * Application state management
  * Centralized state for all form data, UI state, and track information
@@ -3059,71 +3083,57 @@ document.addEventListener("DOMContentLoaded", async () => {
                 args.push(String(audioThreshold), String(minCutDuration), String(mergeGap))
 
                 try {
-                    showToast("Running audio analysis on all tracks…", "info")
+                    showToast("Running audio analysis...", "info");
                     timbreErrorHandler.logInfo(`Invoking analysis with ${args.length} arguments`)
 
-                    updateProgressButton(50, "Running analysis...")
+                    updateProgressButton(50, "Running analysis...");
 
-                    const stdout = await runAudioAnalysis(args)
-
-                    let analysisResult
-                    try {
-                        analysisResult = JSON.parse(stdout)
-                    } catch (parseError) {
-                        throw new Error(`Failed to parse analysis result: ${parseError.message}`)
+                    const analysisResult = await runAudioAnalysis(args);
+                    const timeline = analysisResult.timeline;
+                    if (!Array.isArray(timeline) || timeline.length === 0) {
+                        throw new Error("No valid timeline generated");
                     }
 
-                    const { timeline, err } = analysisResult
+                    timbreErrorHandler.logInfo(`Analysis yielded ${timeline.length} segments`);
+                    updateProgressButton(95, "Applying cuts...");
 
-                    if (err) {
-                        throw new Error(`Analysis error: ${err}`)
-                    }
-
-                    if (!timeline || !Array.isArray(timeline) || timeline.length === 0) {
-                        throw new Error("No valid timeline generated from analysis")
-                    }
-
-                    timbreErrorHandler.logInfo(`Analysis generated ${timeline.length} timeline entries`)
-                    updateProgressButton(95, "Applying cuts...")
-
-                    // Apply timeline to Premiere Pro
-                    await new Promise((resolve, reject) => {
-                        const timeoutId = setTimeout(() => {
-                            reject(new Error("Timeline processing timed out"))
-                        }, 30000)
-
-                        csInterface.evalScript(`$._PPP_.processTimeline(${JSON.stringify(timeline)});`, (result) => {
-                            clearTimeout(timeoutId)
-                            if (result && result.startsWith("Error:")) {
-                                reject(new Error(result))
-                            } else {
-                                showToast("Timeline applied in Premiere Pro", "success")
-                                timbreErrorHandler.logInfo("processTimeline() completed successfully")
-                                resolve()
+                    await new Promise((res, rej) => {
+                        csInterface.evalScript(
+                            `$._PPP_.processTimeline(${JSON.stringify(timeline)});`,
+                            (ret) => {
+                                if (ret && ret.startsWith("Error:")) {
+                                    rej(new Error(ret));
+                                } else {
+                                    showToast("Timeline applied in Premiere Pro", "success");
+                                    timbreErrorHandler.logInfo("processTimeline() succeeded");
+                                    res();
+                                }
                             }
-                        })
-                    })
+                        );
+                    });
 
-                    updateProgressButton(100, "Complete!")
-                    showToast("All done!", "success")
-                    recordEdit()
-                    timbreErrorHandler.logInfo("Completed multi-camera audio analysis and edit")
-
-                    setTimeout(() => {
-                        updateProgressButton(0)
-                    }, 2000)
-                } catch (err) {
+                    updateProgressButton(100, "Complete!");
+                    showToast("All done!", "success");
+                    recordEdit();
+                    timbreErrorHandler.logInfo("Completed multi-camera edit");
+                    setTimeout(() => updateProgressButton(0), 2000);
+                }
+                catch (err) {
                     timbreErrorHandler.handleError(
                         ErrorCodes.AUDIO_ANALYSIS_FAILED,
                         {
                             operation: "handleCreateEdit",
-                            analysisArgs: args.length,
-                            platform: csInterface.getOSInformation().indexOf("Mac") >= 0 ? "Mac" : "Windows",
+                            argsLength: args.length,
+                            platform: csInterface.getOSInformation().includes("Mac") ? "Mac" : "Windows"
                         },
-                        err,
-                    )
-                    showToast(`Error during analysis: ${err.message}`, "error")
-                    updateProgressButton(0)
+                        err
+                    );
+                    showToast(`Error: ${err.message}`, "error");
+                    updateProgressButton(0);
+                } finally {
+                    setProcessingState(false);
+                    appState.ui.isDirty = false;
+                    updateProgressButton(0);
                 }
             } catch (err) {
                 timbreErrorHandler.handleError(
@@ -3137,6 +3147,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 showToast(`Error during analysis: ${err}`, "error")
                 updateProgressButton(0)
             } finally {
+                updateProgressButton(0);
                 setProcessingState(false)
                 appState.ui.isDirty = false
             }
@@ -3315,109 +3326,118 @@ document.addEventListener("DOMContentLoaded", async () => {
          */
         async function runAudioAnalysis(cliArgs) {
             return new Promise((resolve, reject) => {
+                let pollId;
                 try {
-                    timbreErrorHandler.logInfo("Starting audio analysis", { argsCount: cliArgs.length })
+                    timbreErrorHandler.logInfo(`Starting audio analysis (args=${cliArgs.length})`);
 
+                    //CEP & paths
                     if (typeof CSInterface === "undefined") {
-                        throw new Error("CSInterface not available")
+                        throw new Error("CSInterface not available");
+                    }
+                    const cs = new CSInterface();
+                    const extDir = cs.getSystemPath(SystemPath.EXTENSION);
+                    const isWin = cs.getOSInformation().includes("Windows");
+                    const sep = isWin ? "\\" : "/";
+                    const exeName = isWin ? "audioTool-win.exe" : "audioTool-mac";
+                    const exePath = `${extDir}${sep}audioAnalysis${sep}${exeName}`;
+
+                    // arguments validation
+                    if (!Array.isArray(cliArgs) || cliArgs.length < 6) {
+                        timbreErrorHandler.handleError(
+                            ErrorCodes.AUDIO_ANALYSIS_FAILED,
+                            { reason: "insufficient_arguments", argsLength: cliArgs.length }
+                        );
+                        return reject(new Error("Insufficient arguments for audio analysis"));
                     }
 
-                    const cs = new CSInterface()
-                    const extDir = cs.getSystemPath(SystemPath.EXTENSION)
-                    const isWin = cs.getOSInformation().includes("Windows")
-                    const sep = isWin ? "\\" : "/"
+                    //external binary launch
+                    const safeArgs = cliArgs.map(a => String(a));
+                    timbreErrorHandler.logInfo(`Launching audioTool: ${exePath} ${safeArgs.join(" ")}`);
 
-                    if (!Array.isArray(cliArgs) || cliArgs.length < 4) {
-                        timbreErrorHandler.handleError(ErrorCodes.AUDIO_ANALYSIS_FAILED, {
-                            reason: "insufficient_arguments",
-                            argsLength: cliArgs?.length || 0,
-                        })
-                        return reject(new Error("Insufficient arguments for audio analysis"))
-                    }
-
-                    const audioFiles = cliArgs.filter((arg, index) => index % 3 === 0 && index < cliArgs.length - 3)
-                    for (const file of audioFiles) {
-                        if (!file || file.includes("Error")) {
-                            timbreErrorHandler.handleError(ErrorCodes.AUDIO_FILE_NOT_FOUND, { file })
-                            return reject(new Error(`Invalid audio file: ${file}`))
-                        }
-                    }
-
-                    const safeArgs = cliArgs.map((a) => String(a).replace(/\\/g, "\\\\"))
-                    const exeName = isWin ? "audioTool-win.exe" : "audioTool-mac"
-                    const exePath = `${extDir}${sep}audioAnalysis${sep}${exeName}`
-
-                    timbreErrorHandler.logInfo(`Running: ${exePath} ${safeArgs.join(" ")}`)
-                    timbreErrorHandler.logInfo("Launching audioTool", { exePath, args: safeArgs })
                     if (!window.cep || !window.cep.process) {
-                        throw new Error("CEP process API not available")
+                        throw new Error("CEP process API not available");
                     }
-
-                    let startRes
-                    if (isWin) {
-                        startRes = window.cep.process.createProcess(exePath, ...safeArgs)
-                    } else {
-                        startRes = window.cep.process.createProcess(exePath, safeArgs)
-                    }
+                    const startRes = isWin
+                        ? window.cep.process.createProcess(exePath, ...safeArgs)
+                        : window.cep.process.createProcess(exePath, safeArgs);
 
                     if (startRes.err !== 0) {
-                        timbreErrorHandler.handleError(ErrorCodes.AUDIO_ANALYSIS_FAILED, {
-                            reason: "process_start_error",
-                            message: startRes.err,
-                        })
-                        return reject({ err: startRes.err })
+                        timbreErrorHandler.handleError(
+                            ErrorCodes.AUDIO_ANALYSIS_FAILED,
+                            { reason: "process_start_error", message: startRes.err }
+                        );
+                        return reject(new Error("Failed to start analysis process"));
                     }
-                    const pid = startRes.data
 
-                    let stdoutData = ""
-                    let stderrData = ""
-                    window.cep.process.stdout(pid, (chunk) => {
-                        stdoutData += chunk
-                    })
-                    window.cep.process.stderr(pid, (chunk) => {
-                        stderrData += chunk
-                    })
+                    const pid = startRes.data;
+                    let stdoutData = "", stderrData = "";
 
-                    const poll = setInterval(() => {
-                        const stat = window.cep.process.isRunning(pid)
+                    window.cep.process.stdout(pid, chunk => { stdoutData += chunk; });
+                    window.cep.process.stderr(pid, chunk => { stderrData += chunk; });
+
+                    pollId = setInterval(() => {
+                        const stat = window.cep.process.isRunning(pid);
                         if (stat.err !== 0) {
-                            clearInterval(poll)
-                            timbreErrorHandler.handleError(ErrorCodes.AUDIO_ANALYSIS_FAILED, {
-                                reason: "process_poll_error",
-                                message: stat.err,
-                            })
-                            return reject({ err: stat.err })
+                            clearInterval(pollId);
+                            return reject(new Error("Process poll error"));
                         }
                         if (!stat.data) {
-                            clearInterval(poll)
+                            clearInterval(pollId);
+
+                            // stderr check
                             if (stderrData.trim()) {
-                                timbreErrorHandler.handleError(ErrorCodes.AUDIO_ANALYSIS_FAILED, {
-                                    reason: "stderr_output",
-                                    message: stderrData.trim(),
-                                })
-                                return reject({ err: stderrData.trim() })
+                                return reject(new Error(stderrData.trim()));
                             }
-                            if (!stdoutData.trim()) {
-                                timbreErrorHandler.handleError(ErrorCodes.AUDIO_ANALYSIS_FAILED, {
-                                    reason: "no_output",
-                                })
-                                return reject({ err: "No output from analysis tool" })
+
+                            //.dat path from stdout retrival
+                            let datPath = stdoutData.trim();
+                            if (!datPath) {
+                                return reject(new Error("No output path from analysis tool"));
                             }
-                            resolve(stdoutData)
+                            // normalize separators
+                            datPath = datPath.replace(/[\\/]+/g, sep);
+                            timbreErrorHandler.logInfo(`Reading timeline: ${datPath}`);
+                            logToPanel(`Timeline path: ${datPath}`, "info")
+
+                            //read the .dat file
+                            const rf = window.cep.fs.readFile(datPath);
+                            if (rf.err !== 0) {
+                                return reject(new Error(`Failed to read ${datPath}: ${rf.err}`));
+                            }
+
+                            //base64 → obfuscated bytes
+                            const obf = Base64.decode(rf.data);
+                            // logToPanel(`Obfuscated bytes: ${obf}`, "info");
+                            //xor-deobfuscate to recover JSON
+                            let json = "";
+                            for (let i = 0; i < obf.length; i++) {
+                                const b = obf.charCodeAt(i) ^ 0xAA;
+                                json += String.fromCharCode(b);
+                            }
+                            // logToPanel(`Recovered JSON: ${json}`, "info");
+
+                            //parse JSON
+                            let obj;
+                            try {
+                                obj = JSON.parse(json);
+                            } catch (e) {
+                                return reject(new Error(`Invalid JSON in ${datPath}: ${e.message}`));
+                            }
+
+                            resolve(obj);
                         }
-                    }, 500)
-                } catch (e) {
+                    }, 500);
+                }
+                catch (e) {
+                    if (pollId) clearInterval(pollId);
                     timbreErrorHandler.handleError(
                         ErrorCodes.AUDIO_ANALYSIS_FAILED,
-                        {
-                            reason: "exception",
-                            message: e.message,
-                        },
-                        e,
-                    )
-                    reject(e)
+                        { reason: "exception", message: e.message },
+                        e
+                    );
+                    reject(e);
                 }
-            })
+            });
         }
 
         /**
@@ -3450,6 +3470,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         timbreErrorHandler.logInfo("Timbre AutoPodcast initialization complete")
     } catch (error) {
+        updateProgressButton(0);
         timbreErrorHandler.handleError(ErrorCodes.SYSTEM_UNKNOWN_ERROR, { operation: "DOMContentLoaded" }, error)
     }
 })

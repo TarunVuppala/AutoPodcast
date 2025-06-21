@@ -126,6 +126,7 @@ $._PPP_ = {
 				throw new Error("No timeline provided.");
 			}
 			$._PPP_.updateEventPanel("Starting timeline processing...");
+
 			var seq = app.project.activeSequence;
 			if (!seq) {
 				$._PPP_.updateEventPanel("No active sequence!");
@@ -135,51 +136,56 @@ $._PPP_ = {
 			var usedV = {}, usedA = {}, projItems = {};
 			for (var i = 0; i < tl.length; i++) {
 				var e = tl[i];
-				usedV[e.videoTrack] = true;
-				usedA[e.audioTrack] = true;
+				usedV[e.v] = true;
+				usedA[e.a] = true;
 			}
+
 			for (var vt in usedV) {
 				var track = seq.videoTracks[Number(vt) - 1];
 				if (track.clips.numItems > 0) {
 					projItems[vt] = track.clips[0].projectItem;
 				} else {
-					$._PPP_.updateEventPanel("Warning: video track " + vt + " has no source clip!");
+					$._PPP_.updateEventPanel(
+						"Warning: video track " + vt + " has no source clip!"
+					);
 				}
 			}
 
-			for (var vt in usedV) {
-				var track = seq.videoTracks[Number(vt) - 1];
-				while (track.clips.numItems) {
-					track.clips[0].remove(true, true);
+			for (vt in usedV) {
+				var vTrack = seq.videoTracks[Number(vt) - 1];
+				while (vTrack.clips.numItems) {
+					vTrack.clips[0].remove(true, true);
 				}
 			}
 			for (var at in usedA) {
-				var track = seq.audioTracks[Number(at) - 1];
-				while (track.clips.numItems) {
-					track.clips[0].remove(true, true);
+				var aTrack = seq.audioTracks[Number(at) - 1];
+				while (aTrack.clips.numItems) {
+					aTrack.clips[0].remove(true, true);
 				}
 			}
+
 			for (var idx = 0; idx < tl.length; idx++) {
 				var e = tl[idx];
-				var vTrack = seq.videoTracks[e.videoTrack - 1];
-				var aTrack = seq.audioTracks[e.audioTrack - 1];
-				var projItem = projItems[e.videoTrack];
-				if (!projItem)
+				var projItem = projItems[e.v];
+				if (!projItem) {
 					continue;
+				}
 
-				var inTime = new Time(); inTime.seconds = e.start;
-				var outTime = new Time(); outTime.seconds = e.end;
-				var name = e.type + "_" + (idx + 1)
-					+ "_" + e.start.toFixed(2)
-					+ "-" + e.end.toFixed(2);
+				var inTime = new Time(); inTime.seconds = e.s;
+				var outTime = new Time(); outTime.seconds = e.e;
+				var name =
+					e.t + "_" + (idx + 1) + "_" +
+					e.s.toFixed(2) + "-" +
+					e.e.toFixed(2);
 
 				var subItem = projItem.createSubClip(name, inTime, outTime, 1);
-
-				seq.insertClip(subItem, inTime, e.videoTrack - 1, e.audioTrack - 1);
+				seq.insertClip(subItem, inTime, e.v - 1, e.a - 1);
 			}
 
 			app.project.save();
-			$._PPP_.updateEventPanel("Timeline processing complete: " + tl.length + " entries applied");
+			$._PPP_.updateEventPanel(
+				"Timeline processing complete: " + tl.length + " entries applied"
+			);
 		}
 		catch (err) {
 			$._PPP_.updateEventPanel("Error in processTimeline: " + err.toString());
