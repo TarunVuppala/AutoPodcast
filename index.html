@@ -22,11 +22,13 @@
 			<header class="panel-header">
 				<div class="title-group">
 					<div class="logo-container">
-						<img class="panel-logo" src="assets/timbre_logo.png" alt="Timbre Logo">
+						<img class="panel-logo link" src="assets/timbre_logo.png" alt="Timbre Logo">
 					</div>
 					<div>
-						<h1 class="panel-title">Timbre AutoPodcast</h1>
+						<h1 class="panel-title" title="title">Timbre AutoPodcast</h1>
 						<p class="panel-subtitle">Automated multi-camera podcast editing</p>
+							<a id="purchaseLink" onclick="openURLInBrowser()">Purchase here</a>
+
 					</div>
 				</div>
 				<div class="icons">
@@ -87,8 +89,9 @@
 					</div>
 
 					<div class="auth-footer">
-						<p class="auth-footer-text">Need a license? <a href="https://timbrehq.com/"
-								target="_blank">Purchase here</a></p>
+						<p class="auth-footer-text">Need a license?
+							<!-- <a id="purchaseLink" class="link">Purchase here</a> -->
+						</p>
 					</div>
 				</div>
 			</div>
@@ -380,6 +383,10 @@
 			csInterface.openURLInDefaultBrowser(path);
 		}
 	};
+
+	function openURLInBrowser() {
+		new CSInterface().openURLInDefaultBrowser("https://www.timbrehq.com/auto-podcast/");
+	}
 </script>
 <script src="./script.js"></script>
 

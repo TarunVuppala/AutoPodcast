@@ -87,7 +87,6 @@ const ErrorDefinitions = {
         message: "Cannot connect to license server. Check your internet connection.",
         recoverySteps: [
             "Check your internet connection",
-            "Try again in a few moments",
             "Contact support if the issue persists",
         ],
         autoRecovery: true,
@@ -100,8 +99,6 @@ const ErrorDefinitions = {
         title: "Device Limit Reached",
         message: "Your license is already active on the maximum number of devices.",
         recoverySteps: [
-            "Log into your account to manage device activations",
-            "Deactivate unused devices",
             "Contact support for device transfer",
         ],
     },
@@ -127,7 +124,7 @@ const ErrorDefinitions = {
         severity: ErrorSeverity.CRITICAL,
         title: "Premiere Pro Connection Lost",
         message: "Cannot communicate with Premiere Pro.",
-        recoverySteps: ["Close and reopen the Timbre panel", "Restart Premiere Pro if needed"],
+        recoverySteps: ["Close and reopen the Timbre AutoPodcast panel", "Restart Premiere Pro if needed"],
         autoRecovery: true,
         retryDelay: 3000,
         maxRetries: 2,
@@ -156,7 +153,6 @@ const ErrorDefinitions = {
         message: "Assigned track has multiple clips. Each track should have exactly one clip.",
         recoverySteps: [
             "Merge clips using Clip > Merge Clips",
-            "Move extra clips to unused tracks",
             "Use a different track with only one clip",
         ],
     },
@@ -272,7 +268,7 @@ const ErrorDefinitions = {
 class TimbreErrorHandler {
     constructor() {
         this.errorLog = []
-        this.maxLogEntries = 50
+        this.maxLogEntries = 20
         this.activeErrors = new Set()
         this.retryAttempts = new Map()
         this.errorContainer = null
@@ -313,14 +309,13 @@ class TimbreErrorHandler {
             return this.handleUnknownError(errorCode, context, originalError)
         }
 
-        // Skip track errors for unassigned tracks to reduce noise
         if (this.isTrackError(errorCode) && !this.isTrackAssigned(context)) {
             return
         }
 
         const errorKey = `${errorCode}_${JSON.stringify(context)}`
         if (this.activeErrors.has(errorKey)) {
-            return // Don't show duplicate errors
+            return
         }
 
         const errorEntry = {
@@ -397,11 +392,13 @@ class TimbreErrorHandler {
           ${this.getErrorIcon(errorDef.severity)}
         </div>
         <span class="error-title">${errorDef.title}</span>
-        <button class="error-dismiss" onclick="timbreErrorHandler.dismissError(${errorEntry.code})" title="Dismiss">×</button>
+        <button class="error-dismiss" onclick="timbreErrorHandler.dismissError(${errorEntry.code})" title="Dismiss">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x-icon lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
       </div>
       
       <div class="error-details">
-        <div class="error-message">${errorDef.message}</div>
+        <div class="error-message">${errorDef.message} - ${errorEntry.code}</div>
         ${errorDef.recoverySteps
                 ? `
           <div class="error-recovery">
@@ -415,7 +412,7 @@ class TimbreErrorHandler {
             }
         <div class="error-actions">
           <button class="error-retry" onclick="timbreErrorHandler.retryAction(${errorEntry.code})">Try Again</button>
-          <button class="error-help" onclick="timbreErrorHandler.showHelp(${errorEntry.code})">Help</button>
+          <button class="error-help" onclick="openURLInBrowser()">Report</button>
         </div>
       </div>
     </div>
@@ -568,8 +565,8 @@ class TimbreErrorHandler {
     showHelp(errorCode) {
         const errorDef = ErrorDefinitions[errorCode]
         if (errorDef && errorDef.recoverySteps) {
-            const steps = errorDef.recoverySteps.join("\n• ")
-            alert(`How to fix this:\n\n• ${steps}`)
+            const steps = errorDef.recoverySteps.join(" • ")
+            alert(`How to fix this:• ${steps}`)
         }
     }
 
@@ -1107,7 +1104,7 @@ function setProcessingState(isProcessing) {
     appState.ui.isProcessing = isProcessing
 
     const formElements = document.querySelectorAll(
-        "input, select, button:not(.error-dismiss):not(.error-retry):not(.error-help)",
+        "input, select, button:not(.error-dismiss):not(.error-retry):not(.error-help):not(#themeToggleBtn)",
     )
 
     formElements.forEach((element) => {
@@ -1472,7 +1469,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                   </svg>
                   <span>Trial: ${days} days remaining (6 edits max)</span>
               </div>
-              <a href="https://timbrehq.com/"  target="_blank" class="trial-banner-btn">
+              <a href="https://timbrehq.com/" class="trial-banner-btn link">
                   Purchase License
               </a>
           `
@@ -1494,7 +1491,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         /**
-         * Close authentication modal with animation
+         * Close authentication modal
          */
         function closeAuthModal() {
             const mod = document.getElementById("authModal")
@@ -1828,7 +1825,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 elements.trackInfoBanner.className = bannerClass
                 elements.trackInfoBanner.innerHTML = `
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="12" y1="16" x2="12" y2="12"></line>
             <line x1="12" y1="8" x2="12.01" y2="8"></line>
@@ -1836,7 +1833,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <span>
             Found ${videoTracksCount} video tracks and ${audioTracksCount} audio tracks.
             ${!tracksMatch ? "<strong>Warning: Track counts do not match!</strong>" : ""}
-            <br>Each assigned track should have exactly one clip. Empty tracks are automatically hidden.
+            <br>Each assigned track should have only one clip
           </span>
         `
             }
@@ -2132,6 +2129,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             document.documentElement.setAttribute("data-theme", newTheme)
             saveThemePreference(newTheme)
             updateThemeUI()
+            showToast(`Theme changed to: ${newTheme}`, "success")
             timbreErrorHandler.logInfo(`Theme changed to: ${newTheme}`)
         }
 
@@ -2685,7 +2683,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 isValid = false
             }
 
-            //
             // Validate cut duration range
             const cutDuration = appState.formData.minCutDuration
             if (cutDuration < 0.5 || cutDuration > 10) {
@@ -2842,7 +2839,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 const csInterface = new CSInterface()
 
-                // Get audio track information first
+                // Getting audio track information
                 csInterface.evalScript("$._PPP_.getAudioTrackClipItemsPath()", (audioResult) => {
                     try {
                         if (!audioResult) {
@@ -2882,10 +2879,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                                 }
                                 return 2 // Multiple clips
                             }
-                            return 1 // Single clip (good)
+                            return 1 // Single clip
                         })
 
-                        // Get video track information
+                        // Getting video track information
                         csInterface.evalScript("$._PPP_.getVideoTracks()", (videoResult) => {
                             try {
                                 if (!videoResult) {
@@ -3059,7 +3056,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
                 const mergeGap = mergeGapMap[frequency] ?? minCutDuration * 0.5
 
-                // Prepare arguments for audio analysis
+                // Preparing arguments for audio analysis
                 const args = []
                 for (let i = 0; i < appState.formData.numCameras; i++) {
                     if (!appState.formData.trackMapping[i]) continue
@@ -3326,7 +3323,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 try {
                     timbreErrorHandler.logInfo(`Starting audio analysis (args=${cliArgs.length})`);
 
-                    //CEP & paths
                     if (typeof CSInterface === "undefined") {
                         throw new Error("CSInterface not available");
                     }
@@ -3401,16 +3397,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                                 return reject(new Error(`Failed to read ${datPath}: ${rf.err}`));
                             }
 
-                            //base64 → obfuscated bytes
+                            //base64 -> obfuscated bytes
                             const obf = Base64.decode(rf.data);
-                            // logToPanel(`Obfuscated bytes: ${obf}`, "info");
                             //xor-deobfuscate to recover JSON
                             let json = "";
                             for (let i = 0; i < obf.length; i++) {
                                 const b = obf.charCodeAt(i) ^ 0xAA;
                                 json += String.fromCharCode(b);
                             }
-                            // logToPanel(`Recovered JSON: ${json}`, "info");
 
                             //parse JSON
                             let obj;
@@ -3446,7 +3440,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (reloadBtn) {
                 reloadBtn.addEventListener("click", () => {
                     timbreErrorHandler.logInfo("Reload button clicked")
-                    requestTrackInfo()
+                    appInit()
+                    showToast("Timbre AutoPodcast reloaded", "success")
                 })
             }
 
@@ -3454,6 +3449,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 reloadTracks.addEventListener("click", () => {
                     timbreErrorHandler.logInfo("Reload tracks button clicked")
                     requestTrackInfo()
+                    showToast("Tracks reloaded", "success")
                 })
             }
         }

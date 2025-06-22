@@ -11,7 +11,6 @@
 }
 
 :root {
-
   --color-primary: #e53e3e;
   --color-primary-hover: #c53030;
   --color-primary-light: #feb2b2;
@@ -1014,12 +1013,6 @@ body {
 .action-section .btn-primary {
   flex: 1;
   max-width: 240px;
-}
-
-.error {
-  border-color: var(--color-error) !important;
-  box-shadow: 0 0 0 3px rgba(255, 82, 82, 0.2) !important;
-  background-color: rgba(255, 82, 82, 0.05) !important;
 }
 
 .hidden {
