@@ -93,14 +93,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
-  padding: var(--space-sm);
   margin: 0;
 }
 
 .timbre-panel {
-  width: 100%;
-  max-width: 650px;
-  margin: 0 auto;
+  margin: var(--space-sm);
   background: var(--color-panel);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
@@ -1527,4 +1524,15 @@ body {
 
 .app-content {
   overflow: visible;
+}
+
+footer {
+  width: 100%;
+  padding: 10px;
+  background-color: var(--color-primary);
+}
+
+footer p {
+  text-align: center;
+
 }

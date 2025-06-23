@@ -38,7 +38,7 @@
         </Lifecycle>
         <UI>
           <Type>Panel</Type>
-          <Menu>Timbre AutoPodcast</Menu>
+          <Menu>Timbre AutoPodcast Dev</Menu>
           <Geometry>
             <Size>
               <Height>650</Height>
