@@ -325,7 +325,7 @@ class TimbreErrorHandler {
             title: errorDef.title,
             message: errorDef.message,
             context: context,
-            originalError: originalError?.message || null,
+            originalError: originalError?.message || null
         }
 
         this.logError(errorEntry)
@@ -1356,7 +1356,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                     const json = await resp.json()
 
-                    if (resp.ok && json.userVerified) {
+                    if (json.userVerified) {
                         authState.apiKey = key
                         authState.email = email
                         authState.userId = json.userId
@@ -1382,20 +1382,22 @@ document.addEventListener("DOMContentLoaded", async () => {
                         return true
                     } else {
                         let errorCode = ErrorCodes.AUTH_INVALID_KEY
-                        if (resp.status === 429) {
+                        if (json.error.code === 403 || resp.status === 403) {
                             errorCode = ErrorCodes.AUTH_DEVICE_LIMIT
                         } else if (resp.status >= 500) {
                             errorCode = ErrorCodes.AUTH_SERVER_ERROR
                         }
-
+                        authState.error = ErrorDefinitions[errorCode].title || "Unknown error"
                         timbreErrorHandler.handleError(errorCode, {
                             email,
                             statusCode: resp.status,
                             response: json,
                         })
+
                         return false
                     }
                 } catch (networkErr) {
+                    authState.error = ErrorDefinitions[ErrorCodes.AUTH_NETWORK_ERROR].title
                     timbreErrorHandler.handleError(
                         ErrorCodes.AUTH_NETWORK_ERROR,
                         {
@@ -1408,6 +1410,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     return false
                 }
             } catch (err) {
+                authState.error = ErrorDefinitions[ErrorCodes.AUTH_NETWORK_ERROR].title
                 timbreErrorHandler.handleError(
                     ErrorCodes.AUTH_NETWORK_ERROR,
                     {
@@ -1593,7 +1596,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         showApp()
                         return
                     } else {
-                        authError.textContent = authState.error || "Invalid license key"
+                        authError.textContent = authState.error
                         return
                     }
                 })
@@ -1606,6 +1609,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         function authSetup() {
             setupAuthModalEvents()
             if (checkAuthStatus()) {
+                clearAllErrors()
                 showApp()
                 return
             }
@@ -1865,7 +1869,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (elements.presetNewBtn) elements.presetNewBtn.addEventListener("click", openPresetModal)
             if (elements.presetDeleteBtn) elements.presetDeleteBtn.addEventListener("click", handleDeletePreset)
             if (elements.presetSelect) elements.presetSelect.addEventListener("change", handlePresetSelect)
-            if (elements.themeToggleBtn) elements.themeToggleBtn.addEventListener("click", toggleTheme)
 
             if (elements.presetUpdateBtn) {
                 elements.presetUpdateBtn.addEventListener("click", updateCurrentPreset)
@@ -2118,19 +2121,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (elements.minCutDuration) {
                 elements.minCutDuration.value = newMinCutDuration
             }
-        }
-
-        /**
-         * Toggle between dark and light themes
-         */
-        function toggleTheme() {
-            const newTheme = appState.ui.theme === "dark" ? "light" : "dark"
-            appState.ui.theme = newTheme
-            document.documentElement.setAttribute("data-theme", newTheme)
-            saveThemePreference(newTheme)
-            updateThemeUI()
-            showToast(`Theme changed to: ${newTheme}`, "success")
-            timbreErrorHandler.logInfo(`Theme changed to: ${newTheme}`)
         }
 
         /**
@@ -3454,11 +3444,28 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         }
 
-        // Initialize authentication system
-        authSetup()
+        /**
+         * Toggle between dark and light themes
+         */
+        function toggleTheme() {
+            const newTheme = appState.ui.theme === "dark" ? "light" : "dark"
+            appState.ui.theme = newTheme
+            document.documentElement.setAttribute("data-theme", newTheme)
+            saveThemePreference(newTheme)
+            updateThemeUI()
+            showToast(`Theme changed to: ${newTheme}`, "success")
+            timbreErrorHandler.logInfo(`Theme changed to: ${newTheme}`)
+        }
+
+        elements.themeToggleBtn.addEventListener("click", toggleTheme)
 
         // Set up reload button
         setupReloadButton()
+        loadThemePreference()
+        updateThemeUI()
+
+        // Initialize authentication system
+        authSetup()
 
         timbreErrorHandler.logInfo("Timbre AutoPodcast initialization complete")
     } catch (error) {

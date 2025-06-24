@@ -93,7 +93,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
-  margin: 0;
+  height: 100%;
 }
 
 .timbre-panel {
@@ -1527,6 +1527,8 @@ body {
 }
 
 footer {
+  position: relative;
+  bottom: 0;
   width: 100%;
   padding: 10px;
   background-color: var(--color-primary);
@@ -1534,5 +1536,4 @@ footer {
 
 footer p {
   text-align: center;
-
 }
