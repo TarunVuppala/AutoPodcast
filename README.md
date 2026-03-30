@@ -85,5 +85,4 @@ The tool is built using:
 - Adobe CEP (Common Extensibility Platform) for extension integration
 - ExtendScript for communication with Premiere Pro
 
-## Support
-For additional help or to report bugs, please contact support at x@mail.com.
+**License:** This project is proprietary and not open source. All rights are reserved by Tarun Vuppala.
